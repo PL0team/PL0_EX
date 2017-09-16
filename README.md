@@ -1,6 +1,3 @@
-haha
-hehe
-xiaopeng
-wgjhsgjh
-fhdshuis
-gfgddg
+
+# PL0实验
+> 这是一个由五位学习编译原理的本科生，完成的一个学习性质的实验。
