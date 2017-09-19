@@ -56,8 +56,49 @@ void getsym(void)
 	int i, k;
 	char a[MAXIDLEN + 1];
 
-	while (ch == ' '||ch == '\t')
-		getch();
+	while(TRUE)
+	{
+		if(ch == ' ' || ch == '\t')		// space and tab
+			getch();
+		else if (ch == '/')
+		{
+			getch();
+			if(ch == '*')				// /* comment */
+			{
+				getch();
+				while(TRUE)
+				{
+					if(ch == '*')
+					{
+						getch();
+						if(ch == '/')
+						{
+							getch();
+							break;
+						}
+					}
+					else
+					{
+						getch();
+					}
+				}
+			}
+			else if(ch == '/')			// // comment
+			{
+				cc = ll;				// getch() doesn't return '\n', so I have to force getch()
+										// to fetch char from next line by make cc = ll.
+				getch();
+			}
+			else
+			{
+				break;					// others starts with '/'
+			}
+		}
+		else
+		{
+			break;						// others
+		}
+	}
 
 	if (isalpha(ch))
 	{ // symbol is a reserved word or an identifier.
@@ -68,7 +109,7 @@ void getsym(void)
 				a[k++] = ch;
 			getch();
 		}
-		while (isalpha(ch) || isdigit(ch));
+		while (isalpha(ch) || isdigit(ch) || (ch == '_'));
 		a[k] = 0;
 		strcpy(id, a);
 		word[0] = id;
@@ -859,62 +900,67 @@ void interpret()
 } // interpret
 
 //////////////////////////////////////////////////////////////////////
-void main ()
+void main (int argc, char **argv)
 {
 	FILE* hbin;
 	char s[80];
 	int i;
 	symset set, set1, set2;
 
-	printf("Please input source file name: "); // get file name to be compiled
-	scanf("%s", s);
-	if ((infile = fopen(s, "r")) == NULL)
+	if(argc != 2)
 	{
-		printf("File %s can't be opened.\n", s);
-		exit(1);
+		printf("Usage: pl0.exe path_to_src_file\n");
 	}
-
-	phi = createset(SYM_NULL);
-	relset = createset(SYM_EQU, SYM_NEQ, SYM_LES, SYM_LEQ, SYM_GTR, SYM_GEQ, SYM_NULL);
+	else{
+		strcpy(s, argv[1]);						// get file name to be compiled
+		if ((infile = fopen(s, "r")) == NULL)
+		{
+			printf("File %s can't be opened.\n", s);
+			exit(1);
+		}
 	
-	// create begin symbol sets
-	declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_NULL);
-	statbegsys = createset(SYM_BEGIN, SYM_CALL, SYM_IF, SYM_WHILE, SYM_NULL);
-	facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_LPAREN, SYM_MINUS, SYM_NULL);
-
-	err = cc = cx = ll = 0; // initialize global variables
-	ch = ' ';
-	kk = MAXIDLEN;
-
-	getsym();
-
-	set1 = createset(SYM_PERIOD, SYM_NULL);
-	set2 = uniteset(declbegsys, statbegsys);
-	set = uniteset(set1, set2);
-	block(set);
-	destroyset(set1);
-	destroyset(set2);
-	destroyset(set);
-	destroyset(phi);
-	destroyset(relset);
-	destroyset(declbegsys);
-	destroyset(statbegsys);
-	destroyset(facbegsys);
-
-	if (sym != SYM_PERIOD)
-		error(9); // '.' expected.
-	if (err == 0)
-	{
-		hbin = fopen("hbin.txt", "w");
-		for (i = 0; i < cx; i++)
-			fwrite(&code[i], sizeof(instruction), 1, hbin);
-		fclose(hbin);
+		phi = createset(SYM_NULL);
+		relset = createset(SYM_EQU, SYM_NEQ, SYM_LES, SYM_LEQ, SYM_GTR, SYM_GEQ, SYM_NULL);
+		
+		// create begin symbol sets
+		declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_NULL);
+		statbegsys = createset(SYM_BEGIN, SYM_CALL, SYM_IF, SYM_WHILE, SYM_NULL);
+		facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_LPAREN, SYM_MINUS, SYM_NULL);
+	
+		err = cc = cx = ll = 0; // initialize global variables
+		ch = ' ';
+		kk = MAXIDLEN;
+	
+		getsym();
+	
+		set1 = createset(SYM_PERIOD, SYM_NULL);
+		set2 = uniteset(declbegsys, statbegsys);
+		set = uniteset(set1, set2);
+		block(set);
+		destroyset(set1);
+		destroyset(set2);
+		destroyset(set);
+		destroyset(phi);
+		destroyset(relset);
+		destroyset(declbegsys);
+		destroyset(statbegsys);
+		destroyset(facbegsys);
+	
+		if (sym != SYM_PERIOD)
+			error(9); // '.' expected.
+		if (err == 0)
+		{
+			hbin = fopen("hbin.txt", "w");
+			for (i = 0; i < cx; i++)
+				fwrite(&code[i], sizeof(instruction), 1, hbin);
+			fclose(hbin);
+		}
+		if (err == 0)
+			interpret();
+		else
+			printf("There are %d error(s) in PL/0 program.\n", err);
+		listcode(0, cx);
 	}
-	if (err == 0)
-		interpret();
-	else
-		printf("There are %d error(s) in PL/0 program.\n", err);
-	listcode(0, cx);
 } // main
 
 //////////////////////////////////////////////////////////////////////

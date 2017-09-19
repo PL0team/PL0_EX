@@ -14,6 +14,9 @@
 
 #define STACKSIZE  1000   // maximum storage
 
+#define TRUE 1
+#define FALSE 0
+
 enum symtype
 {
 	SYM_NULL,

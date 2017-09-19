@@ -1,4 +1,4 @@
-pl0:pl0.c
-	gcc -o ../output/pl0 pl0.c
+pl0: pl0.c pl0.h set.c set.h
+	gcc -o pl0 pl0.c
 clean:
-	rm ../output/pl0
+	rm pl0
