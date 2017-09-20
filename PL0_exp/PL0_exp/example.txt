@@ -1,6 +1,7 @@
 var i_2,j;
 begin // test line comment
-  i_2 /* test block 
+// test line comment
+  i_2 /* test block
   comment */ := -1;
   j := i_2 + 1;
 end.
