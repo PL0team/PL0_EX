@@ -71,6 +71,7 @@ void getsym(void)
 					}while(ch != '*');
 					getch();
 				}while(ch != '/');
+				getch();
 
 			}
 			else if(ch == '/')			// // comment
