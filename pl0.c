@@ -65,23 +65,13 @@ void getsym(void)
 			getch();
 			if(ch == '*')				// /* comment */
 			{
-				getch();
-				while(TRUE)
-				{
-					if(ch == '*')
-					{
+				do{
+					do{
 						getch();
-						if(ch == '/')
-						{
-							getch();
-							break;
-						}
-					}
-					else
-					{
-						getch();
-					}
-				}
+					}while(ch != '*');
+					getch();
+				}while(ch != '/');
+
 			}
 			else if(ch == '/')			// // comment
 			{
