@@ -1,9 +1,9 @@
 #include <stdio.h>
 
-#define NRW        11     // number of reserved words
+#define NRW        18     // number of reserved words
 #define TXMAX      500    // length of identifier table
 #define MAXNUMLEN  14     // maximum number of digits in numbers
-#define NSYM       10     // maximum number of symbols in array ssym and csym
+#define NSYM       16     // maximum number of symbols in array ssym and csym
 #define MAXIDLEN   10     // length of identifiers
 
 #define MAXADDRESS 32767  // maximum address
@@ -26,6 +26,14 @@ enum symtype
 	SYM_MINUS,
 	SYM_TIMES,
 	SYM_SLASH,
+	SYM_MOD,
+	SYM_AND,
+	SYM_OR,
+	SYM_NOT,
+	SYM_XOR,
+	SYM_LOGIC_AND,
+	SYM_LOGIC_OR,
+	SYM_LOGIC_NOT,
 	SYM_ODD,
 	SYM_EQU,
 	SYM_NEQ,
@@ -35,6 +43,8 @@ enum symtype
 	SYM_GEQ,
 	SYM_LPAREN,
 	SYM_RPAREN,
+	SYM_LINDEX,
+	SYM_RINDEX,
 	SYM_COMMA,
 	SYM_SEMICOLON,
 	SYM_PERIOD,
@@ -43,12 +53,19 @@ enum symtype
 	SYM_END,
 	SYM_IF,
 	SYM_THEN,
+	SYM_ELIF,
+	SYM_ELSE,
+	SYM_FOR,
 	SYM_WHILE,
 	SYM_DO,
+	SYM_BREAK,
+	SYM_CONTINUE,
 	SYM_CALL,
 	SYM_CONST,
 	SYM_VAR,
-	SYM_PROCEDURE
+	SYM_PROCEDURE,
+	SYM_RETURN,
+	SYM_EXIT
 };
 
 enum idtype
@@ -135,25 +152,26 @@ instruction code[CXMAX];
 char* word[NRW + 1] =
 {
 	"", /* place holder */
-	"begin", "call", "const", "do", "end","if",
-	"odd", "procedure", "then", "var", "while"
+	"begin", "call", "const", "do", "end","if", "then", "elif", "else", 
+	"odd", "procedure", "return", "exit", "var", "for", "while", "break", "continue"
 };
 
 int wsym[NRW + 1] =
 {
-	SYM_NULL, SYM_BEGIN, SYM_CALL, SYM_CONST, SYM_DO, SYM_END,
-	SYM_IF, SYM_ODD, SYM_PROCEDURE, SYM_THEN, SYM_VAR, SYM_WHILE
+	SYM_NULL, 
+	SYM_BEGIN, SYM_CALL, SYM_CONST, SYM_DO, SYM_END, SYM_IF, SYM_THEN, SYM_ELIF, SYM_ELSE, 
+	SYM_ODD, SYM_PROCEDURE, SYM_RETURN, SYM_EXIT, SYM_VAR, SYM_FOR, SYM_WHILE, SYM_BREAK, SYM_CONTINUE
 };
 
 int ssym[NSYM + 1] =
 {
-	SYM_NULL, SYM_PLUS, SYM_MINUS, SYM_TIMES, SYM_SLASH,
-	SYM_LPAREN, SYM_RPAREN, SYM_EQU, SYM_COMMA, SYM_PERIOD, SYM_SEMICOLON
+	SYM_NULL, SYM_PLUS, SYM_MINUS, SYM_TIMES, SYM_SLASH, SYM_MOD, SYM_NOT, SYM_XOR, SYM_LOGIC_NOT, 
+	SYM_LPAREN, SYM_RPAREN, SYM_LINDEX, SYM_RINDEX, SYM_EQU, SYM_COMMA, SYM_PERIOD, SYM_SEMICOLON
 };
 
 char csym[NSYM + 1] =
 {
-	' ', '+', '-', '*', '/', '(', ')', '=', ',', '.', ';'
+	' ', '+', '-', '*', '/', '%', '~', '^', '!', '(', ')', '[', ']', '=', ',', '.', ';'
 };
 
 #define MAXINS   8

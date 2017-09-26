@@ -49,36 +49,6 @@ void getch(void)
 	ch = line[++cc];
 } // getch
 
-/////////////////////////////////////////////////////////////////////////////
-// ignore notes
-void nextch(int status)
-{
-	getch();
-	switch (status) {
-		case 0:
-			if (ch != '/') return;
-			else nextch(1);
-			break;
-		case 1:
-			if (ch == '/'){
-				cc = ll; nextch(0);
-			}else if (ch == '*') {
-				do {
-					getch();
-				} while(ch!='*');
-				nextch(2);
-			}else{
-				cc--;
-				ch = '/';
-			}
-			break;
-		case 2:
-			if (ch == '/') nextch(0);
-			else nextch(1);
-			break;
-	}
-}
-
 //////////////////////////////////////////////////////////////////////
 // gets a symbol from input stream.
 void getsym(void)
@@ -86,103 +56,160 @@ void getsym(void)
 	int i, k;
 	char a[MAXIDLEN + 1];
 
-	while(TRUE){
+	while(TRUE)
+	{
 		if(ch == ' ' || ch == '\t')		// space and tab
-				nextch(0);
+			getch();
+		else if (ch == '/')
+		{
+			getch();
+			if(ch == '*')				// /* comment */
+			{
+				do{
+					do{
+						getch();
+					}while(ch != '*');
+					getch();
+				}while(ch != '/');
 
-		if (isalpha(ch))
-		{ // symbol is a reserved word or an identifier.
-			k = 0;
-			do
-			{
-				if (k < MAXIDLEN)
-					a[k++] = ch;
-				nextch(0);
 			}
-			while (isalpha(ch) || isdigit(ch) || (ch == '_'));
-			a[k] = 0;
-			strcpy(id, a);
-			word[0] = id;
-			i = NRW;
-			while (strcmp(id, word[i--]));
-			if (++i)
-				sym = wsym[i]; // symbol is a reserved word
-			else
-				sym = SYM_IDENTIFIER;   // symbol is an identifier
-		}
-		else if (isdigit(ch))
-		{ // symbol is a number.
-			k = num = 0;
-			sym = SYM_NUMBER;
-			do
+			else if(ch == '/')			// // comment
 			{
-				num = num * 10 + ch - '0';
-				k++;
-				nextch(0);
-			}
-			while (isdigit(ch));
-			if (k > MAXNUMLEN)
-				error(25);     // The number is too great.
-		}
-		else if (ch == ':')
-		{
-			nextch(0);
-			if (ch == '=')
-			{
-				sym = SYM_BECOMES; // :=
-				nextch(0);
+				cc = ll;				// getch() doesn't return '\n', so I have to force getch()
+										// to fetch char from next line by make cc = ll.
+				getch();
 			}
 			else
 			{
-				sym = SYM_NULL;       // illegal?
-			}
-		}
-		else if (ch == '>')
-		{
-			nextch(0);
-			if (ch == '=')
-			{
-				sym = SYM_GEQ;     // >=
-				nextch(0);
-			}
-			else
-			{
-				sym = SYM_GTR;     // >
-			}
-		}
-		else if (ch == '<')
-		{
-			nextch(0);
-			if (ch == '=')
-			{
-				sym = SYM_LEQ;     // <=
-				nextch(0);
-			}
-			else if (ch == '>')
-			{
-				sym = SYM_NEQ;     // <>
-				nextch(0);
-			}
-			else
-			{
-				sym = SYM_LES;     // <
+				ch = '/';				// others starts with '/'
+				cc --;
+				break;
 			}
 		}
 		else
-		{ // other tokens
-			i = NSYM;
-			csym[0] = ch;
-			while (csym[i--] != ch);
-			if (++i)
-			{
-				sym = ssym[i];
-				nextch(0);
-			}
-			else
-			{
-				printf("Fatal Error: Unknown character.\n");
-				exit(1);
-			}
+		{
+			break;						// others
+		}
+	}
+
+	if (isalpha(ch))
+	{ // symbol is a reserved word or an identifier.
+		k = 0;
+		do
+		{
+			if (k < MAXIDLEN)
+				a[k++] = ch;
+			getch();
+		}
+		while (isalpha(ch) || isdigit(ch) || (ch == '_'));
+		a[k] = 0;
+		strcpy(id, a);
+		word[0] = id;
+		i = NRW;
+		while (strcmp(id, word[i--]));
+		if (++i)
+			sym = wsym[i]; // symbol is a reserved word
+		else
+			sym = SYM_IDENTIFIER;   // symbol is an identifier
+	}
+	else if (isdigit(ch))
+	{ // symbol is a number.
+		k = num = 0;
+		sym = SYM_NUMBER;
+		do
+		{
+			num = num * 10 + ch - '0';
+			k++;
+			getch();
+		}
+		while (isdigit(ch));
+		if (k > MAXNUMLEN)
+			error(25);     // The number is too great.
+	}
+	else if (ch == ':')
+	{
+		getch();
+		if (ch == '=')
+		{
+			sym = SYM_BECOMES; // :=
+			getch();
+		}
+		else
+		{
+			sym = SYM_NULL;       // illegal?
+		}
+	}
+	else if(ch == '&')
+	{
+		getch();
+		if(ch == '&')
+		{
+			sym = SYM_LOGIC_AND;
+			getch();
+		}
+		else
+		{
+			sym = SYM_AND;
+		}
+	}
+	else if(ch == '|')
+	{
+		getch();
+		if(ch == '|')
+		{
+			sym = SYM_LOGIC_OR;
+			getch();
+		}
+		else
+		{
+			sym = SYM_OR;
+		}
+	}
+	else if (ch == '>')
+	{
+		getch();
+		if (ch == '=')
+		{
+			sym = SYM_GEQ;     // >=
+			getch();
+		}
+		else
+		{
+			sym = SYM_GTR;     // >
+		}
+	}
+	else if (ch == '<')
+	{
+		getch();
+		if (ch == '=')
+		{
+			sym = SYM_LEQ;     // <=
+			getch();
+		}
+		else if (ch == '>')
+		{
+			sym = SYM_NEQ;     // <>
+			getch();
+		}
+		else
+		{
+			sym = SYM_LES;     // <
+		}
+	}
+	else
+	{ // other tokens
+		i = NSYM;
+		csym[0] = ch;
+		while (csym[i--] != ch);
+		if (++i)
+		{
+			sym = ssym[i];
+			getch();
+		}
+		else
+		{
+			printf("Fatal Error: Unknown character.\n");
+			exit(1);
 		}
 	}
 } // getsym
@@ -308,7 +335,7 @@ void vardeclaration(void)
 void listcode(int from, int to)
 {
 	int i;
-
+	
 	printf("\n");
 	for (i = from; i < to; i++)
 	{
@@ -323,7 +350,7 @@ void factor(symset fsys)
 	void expression(symset fsys);
 	int i;
 	symset set;
-
+	
 	test(facbegsys, fsys, 24); // The symbol can not be as the beginning of an expression.
 
 	while (inset(sym, facbegsys))
@@ -379,7 +406,7 @@ void factor(symset fsys)
 			}
 		}
 		else if(sym == SYM_MINUS) // UMINUS,  Expr -> '-' Expr
-		{
+		{  
 			 getsym();
 			 expression(fsys);
 			 gen(OPR, 0, OPR_NEG);
@@ -393,7 +420,7 @@ void term(symset fsys)
 {
 	int mulop;
 	symset set;
-
+	
 	set = uniteset(fsys, createset(SYM_TIMES, SYM_SLASH, SYM_NULL));
 	factor(set);
 	while (sym == SYM_TIMES || sym == SYM_SLASH)
@@ -420,7 +447,7 @@ void expression(symset fsys)
 	symset set;
 
 	set = uniteset(fsys, createset(SYM_PLUS, SYM_MINUS, SYM_NULL));
-
+	
 	term(set);
 	while (sym == SYM_PLUS || sym == SYM_MINUS)
 	{
@@ -546,11 +573,11 @@ void statement(symset fsys)
 			}
 			else
 			{
-				error(15); // A constant or variable can not be called.
+				error(15); // A constant or variable can not be called. 
 			}
 			getsym();
 		}
-	}
+	} 
 	else if (sym == SYM_IF)
 	{ // if statement
 		getsym();
@@ -570,7 +597,7 @@ void statement(symset fsys)
 		cx1 = cx;
 		gen(JPC, 0, 0);
 		statement(fsys);
-		code[cx1].a = cx;
+		code[cx1].a = cx;	
 	}
 	else if (sym == SYM_BEGIN)
 	{ // block
@@ -626,7 +653,7 @@ void statement(symset fsys)
 	}
 	test(fsys, phi, 19);
 } // statement
-
+			
 //////////////////////////////////////////////////////////////////////
 void block(symset fsys)
 {
@@ -767,7 +794,7 @@ void block(symset fsys)
 int base(int stack[], int currentLevel, int levelDiff)
 {
 	int b = currentLevel;
-
+	
 	while (levelDiff--)
 		b = stack[b];
 	return b;
@@ -891,7 +918,7 @@ void interpret()
 } // interpret
 
 //////////////////////////////////////////////////////////////////////
-int main (int argc, char **argv)
+void main (int argc, char **argv)
 {
 	FILE* hbin;
 	char s[80];
@@ -900,7 +927,7 @@ int main (int argc, char **argv)
 
 	if(argc != 2)
 	{
-		printf("Usage: pl0 path_to_src_file\n");
+		printf("Usage: pl0.exe path_to_src_file\n");
 	}
 	else{
 		strcpy(s, argv[1]);						// get file name to be compiled
@@ -909,21 +936,21 @@ int main (int argc, char **argv)
 			printf("File %s can't be opened.\n", s);
 			exit(1);
 		}
-
+	
 		phi = createset(SYM_NULL);
 		relset = createset(SYM_EQU, SYM_NEQ, SYM_LES, SYM_LEQ, SYM_GTR, SYM_GEQ, SYM_NULL);
-
+		
 		// create begin symbol sets
 		declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_NULL);
 		statbegsys = createset(SYM_BEGIN, SYM_CALL, SYM_IF, SYM_WHILE, SYM_NULL);
 		facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_LPAREN, SYM_MINUS, SYM_NULL);
-
+	
 		err = cc = cx = ll = 0; // initialize global variables
 		ch = ' ';
 		kk = MAXIDLEN;
-
+	
 		getsym();
-
+	
 		set1 = createset(SYM_PERIOD, SYM_NULL);
 		set2 = uniteset(declbegsys, statbegsys);
 		set = uniteset(set1, set2);
@@ -936,7 +963,7 @@ int main (int argc, char **argv)
 		destroyset(declbegsys);
 		destroyset(statbegsys);
 		destroyset(facbegsys);
-
+	
 		if (sym != SYM_PERIOD)
 			error(9); // '.' expected.
 		if (err == 0)
@@ -952,7 +979,6 @@ int main (int argc, char **argv)
 			printf("There are %d error(s) in PL/0 program.\n", err);
 		listcode(0, cx);
 	}
-	return 0;
 } // main
 
 //////////////////////////////////////////////////////////////////////
