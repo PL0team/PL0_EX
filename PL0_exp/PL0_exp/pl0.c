@@ -196,16 +196,6 @@ void getsym(void)
 			sym = SYM_LES;     // <
 		}
 	}
-	else if (ch == '{')
-	{
-		sym = SYM_BEGIN;
-		getch();
-	}
-	else if (ch == '}')
-	{
-		sym = SYM_END;
-		getch();
-	}
 	else
 	{ // other tokens
 		i = NSYM;
@@ -258,6 +248,7 @@ void test(symset s1, symset s2, int n)
 int dx;  // data allocation index
 
 // enter object(constant, variable or procedre) into table.
+// a table of all the id(symbol table)
 void enter(int kind)
 {
 	mask* mk;
@@ -292,7 +283,7 @@ void enter(int kind)
 int position(char* id)
 {
 	int i;
-	strcpy(table[0].name, id);
+	strcpy(table[0].name, id); 	/* place holder */
 	i = tx + 1;
 	while (strcmp(table[--i].name, id) != 0);
 	return i;
@@ -306,8 +297,8 @@ void constdeclaration()
 		getsym();
 		if (sym == SYM_EQU || sym == SYM_BECOMES)
 		{
-			if (sym == SYM_BECOMES)
-				error(1); // Found ':=' when expecting '='.
+			if (sym == SYM_EQU)
+				error(1); // Found '==' when expecting '='.
 			getsym();
 			if (sym == SYM_NUMBER)
 			{
@@ -421,6 +412,24 @@ void factor(symset fsys)
 			 expression(fsys);
 			 gen(OPR, 0, OPR_NEG);
 		}
+		else if (sym == SYM_LOGIC_NOT) // Ecpr -> '!' Expr
+		{
+			getsym();
+			expression(fsys);
+			gen(OPR, 0, OPR_LOGIC_NOT);
+		}
+		else if (sym == SYM_NOT)
+		{
+			getsym();
+			expression(fsys);
+			gen(OPR, 0, OPR_NOT);
+		}
+		// else if (sym == SYM_XOR)
+		// {
+		// 	getsym();
+		// 	expression(fsys);
+		// 	gen(OPR, 0, OPR_XOR);
+		// }
 		test(fsys, createset(SYM_LPAREN, SYM_NULL), 23);
 	} // while
 } // factor
@@ -845,6 +854,15 @@ void interpret()
 			case OPR_NEG:
 				stack[top] = -stack[top];
 				break;
+			case OPR_NOT:
+			 	stack[top] = ~stack[top];
+				break;
+			case OPR_LOGIC_NOT:
+				stack[top] = !stack[top];
+				break;
+			// case OPR_XOR:
+			// 	stack[top] = ^(stack[top]);  /* ^val  reports error */
+			// 	break;
 			case OPR_ADD:
 				top--;
 				stack[top] += stack[top + 1];
@@ -953,7 +971,7 @@ int main (int argc, char **argv)
 		// create begin symbol sets
 		declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_NULL);
 		statbegsys = createset(SYM_BEGIN, SYM_CALL, SYM_IF, SYM_WHILE, SYM_NULL);
-		facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_LPAREN, SYM_MINUS, SYM_NULL);
+		facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_LPAREN, SYM_MINUS, SYM_LOGIC_NOT, SYM_NOT, SYM_NULL);
 
 		err = cc = cx = ll = 0; // initialize global variables
 		ch = ' ';

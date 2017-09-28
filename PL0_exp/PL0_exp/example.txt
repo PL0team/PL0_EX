@@ -1,12 +1,15 @@
+const b = 10;
 var i_2,j, a;
+
 
 { // test line comment
 // test line comment
   i_2 /* test block
   comment */ = -1;
   j = i_2 + 1;
-  if 1 == 1
+  if !1 == 0
   then
     a = 3;
+  a = ~0;
 
 }.

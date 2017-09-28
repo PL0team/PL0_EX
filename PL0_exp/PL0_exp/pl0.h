@@ -83,7 +83,8 @@ enum oprcode
 	OPR_RET, OPR_NEG, OPR_ADD, OPR_MIN,
 	OPR_MUL, OPR_DIV, OPR_ODD, OPR_EQU,
 	OPR_NEQ, OPR_LES, OPR_LEQ, OPR_GTR,
-	OPR_GEQ
+	OPR_GEQ, OPR_NOT, OPR_LOGIC_NOT,
+	OPR_XOR
 };
 
 
@@ -98,7 +99,7 @@ typedef struct
 char* err_msg[] =
 {
 /*  0 */    "",
-/*  1 */    "Found ':=' when expecting '='.",
+/*  1 */    "Found '==' when expecting '='.",
 /*  2 */    "There must be a number to follow '='.",
 /*  3 */    "There must be an '=' to follow the identifier.",
 /*  4 */    "There must be an identifier to follow 'const', 'var', or 'procedure'.",
