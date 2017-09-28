@@ -230,6 +230,7 @@ void gen(int x, int y, int z)
 
 //////////////////////////////////////////////////////////////////////
 // tests if error occurs and skips all symbols that do not belongs to s1 or s2.
+// s1 is FIRST[A];
 void test(symset s1, symset s2, int n)
 {
 	symset s;
@@ -538,19 +539,35 @@ void condition(symset fsys)
 } // condition
 //////////////////////////////////////////////////////////////////////
 void andExpression_(symset fysy) {
-
+	symset set = uniteset(fysy, createset(SYM_LOGIC_AND));
 	while(sym == SYM_LOGIC_AND) {
 		getsym();
-		condition(facbegsys);
+		condition(set);
 	}
+	destroyset(set);
 }
 
 //////////////////////////////////////////////////////////////////////
 void andExpression(symset fsys) {
-	symset set;
-	condition(fsys);
-	set = createset(SYM_LOGIC_AND, SYM_NULL);
-	andExpression_(set);
+	symset set = uniteset(createset(SYM_LOGIC_AND), fsys);
+	condition(set);
+	destroyset(set);
+	andExpression_(fsys);
+}
+
+void orExpression_(symset fsys) {
+	symset set = uniteset(fsys, createset(SYM_LOGIC_OR));
+	while (sym == SYM_LOGIC_OR) {
+		getsym();
+		andExpression(set);
+	}
+	destroyset(set);
+}
+
+void orExpression(symset fsys) {
+	symset set = uniteset(createset(SYM_LOGIC_OR), fsys);
+	andExpression(set);
+	orExpression_(fsys);
 	destroyset(set);
 }
 
@@ -619,7 +636,7 @@ void statement(symset fsys)
 		getsym();
 		set1 = createset(SYM_THEN, SYM_DO, SYM_NULL);
 		set = uniteset(set1, fsys);
-		condition(set);
+		orExpression(set);
 		destroyset(set1);
 		destroyset(set);
 		if (sym == SYM_THEN)
@@ -670,7 +687,7 @@ void statement(symset fsys)
 		getsym();
 		set1 = createset(SYM_DO, SYM_NULL);
 		set = uniteset(set1, fsys);
-		condition(set);
+		orExpression(set);
 		destroyset(set1);
 		destroyset(set);
 		cx2 = cx;

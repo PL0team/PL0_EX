@@ -120,7 +120,7 @@ char* err_msg[] =
 /* 19 */    "Incorrect symbol.",
 /* 20 */    "Relative operators expected.",
 /* 21 */    "Procedure identifier can not be in an expression.",
-/* 22 */    "Missing ')'.",
+/* 22 */    "Missing ')'."
 /* 23 */    "The symbol can not be followed by a factor.",
 /* 24 */    "The symbol can not be as the beginning of an expression.",
 /* 25 */    "The number is too great.",
