@@ -114,7 +114,7 @@ char* err_msg[] =
 /* 13 */    "':=' expected.",
 /* 14 */    "There must be an identifier to follow the 'call'.",
 /* 15 */    "A constant or variable can not be called.",
-/* 16 */    "'then' expected.",
+/* 16 */    "",
 /* 17 */    "';' or 'end' expected.",
 /* 18 */    "'do' expected.",
 /* 19 */    "Incorrect symbol.",
@@ -124,7 +124,7 @@ char* err_msg[] =
 /* 23 */    "The symbol can not be followed by a factor.",
 /* 24 */    "The symbol can not be as the beginning of an expression.",
 /* 25 */    "The number is too great.",
-/* 26 */    "",
+/* 26 */    "Missing '('",
 /* 27 */    "",
 /* 28 */    "",
 /* 29 */    "",
@@ -153,14 +153,14 @@ instruction code[CXMAX];
 char* word[NRW + 1] =
 {
 	"", /* place holder */
-	"call", "const", "do", "if", "then", "elif", "else",
+	"call", "const", "do", "if", "elif", "else",
 	"odd", "procedure", "return", "exit", "var", "for", "while", "break", "continue"
 };
 
 int wsym[NRW + 1] =
 {
 	SYM_NULL,
-	SYM_CALL, SYM_CONST, SYM_DO, SYM_IF, SYM_THEN, SYM_ELIF, SYM_ELSE,
+	SYM_CALL, SYM_CONST, SYM_DO, SYM_IF, SYM_ELIF, SYM_ELSE,
 	SYM_ODD, SYM_PROCEDURE, SYM_RETURN, SYM_EXIT, SYM_VAR, SYM_FOR, SYM_WHILE, SYM_BREAK, SYM_CONTINUE
 };
 

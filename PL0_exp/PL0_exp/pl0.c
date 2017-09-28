@@ -571,6 +571,22 @@ void orExpression(symset fsys) {
 	destroyset(set);
 }
 
+void conditionExpression(symset fsys) {
+	symset set;
+	if (sym != SYM_LPAREN) {
+		error(26);
+	}else{
+		getsym();
+		set = createset(SYM_RPAREN);
+		orExpression(set);
+		destroyset(set);
+		if (sym != SYM_RPAREN) {
+			error(22);
+		}
+		getsym();
+	}
+}
+
 //////////////////////////////////////////////////////////////////////
 void statement(symset fsys)
 {
@@ -636,17 +652,9 @@ void statement(symset fsys)
 		getsym();
 		set1 = createset(SYM_THEN, SYM_DO, SYM_NULL);
 		set = uniteset(set1, fsys);
-		orExpression(set);
+		conditionExpression(set);
 		destroyset(set1);
 		destroyset(set);
-		if (sym == SYM_THEN)
-		{
-			getsym();
-		}
-		else
-		{
-			error(16); // 'then' expected.
-		}
 		cx1 = cx;
 		gen(JPC, 0, 0);
 		statement(fsys);
