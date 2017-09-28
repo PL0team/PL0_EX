@@ -536,6 +536,23 @@ void condition(symset fsys)
 		} // else
 	} // else
 } // condition
+//////////////////////////////////////////////////////////////////////
+void andExpression_(symset fysy) {
+
+	while(sym == SYM_LOGIC_AND) {
+		getsym();
+		condition(facbegsys);
+	}
+}
+
+//////////////////////////////////////////////////////////////////////
+void andExpression(symset fsys) {
+	symset set;
+	condition(fsys);
+	set = createset(SYM_LOGIC_AND, SYM_NULL);
+	andExpression_(set);
+	destroyset(set);
+}
 
 //////////////////////////////////////////////////////////////////////
 void statement(symset fsys)
