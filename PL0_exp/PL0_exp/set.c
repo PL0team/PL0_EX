@@ -9,12 +9,12 @@ symset uniteset(symset s1, symset s2)
 {
 	symset s;
 	snode* p;
-	
+
 	s1 = s1->next;
 	s2 = s2->next;
-	
+
 	s = p = (snode*) malloc(sizeof(snode));
-	while (s1 && s2)
+	while (s1 && s2)  // is not null
 	{
 		p->next = (snode*) malloc(sizeof(snode));
 		p = p->next;
@@ -36,7 +36,7 @@ symset uniteset(symset s1, symset s2)
 		p = p->next;
 		p->elem = s1->elem;
 		s1 = s1->next;
-		
+
 	}
 
 	while (s2)
@@ -61,7 +61,7 @@ void setinsert(symset s, int elem)
 	{
 		p = p->next;
 	}
-	
+
 	q = (snode*) malloc(sizeof(snode));
 	q->elem = elem;
 	q->next = p->next;

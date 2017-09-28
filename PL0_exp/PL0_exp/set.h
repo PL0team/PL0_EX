@@ -5,7 +5,7 @@ typedef struct snode
 {
 	int elem;
 	struct snode* next;
-} snode, *symset;
+} snode, *symset;	//order link list ex:	<4, 3, 2, 1>
 
 symset phi, declbegsys, statbegsys, facbegsys, relset;
 

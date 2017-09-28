@@ -56,14 +56,14 @@ void getsym(void)
 	int i, k;
 	char a[MAXIDLEN + 1];
 
-	while(TRUE)
+	while(TRUE)												// deal with space tab and comment
 	{
-		if(ch == ' ' || ch == '\t')		// space and tab
+		if(ch == ' ' || ch == '\t')			// space and tab
 			getch();
 		else if (ch == '/')
 		{
 			getch();
-			if(ch == '*')				// /* comment */
+			if(ch == '*')									// /* comment */
 			{
 				do{
 					do{
@@ -72,7 +72,6 @@ void getsym(void)
 					getch();
 				}while(ch != '/');
 				getch();
-
 			}
 			else if(ch == '/')			// // comment
 			{
@@ -91,7 +90,7 @@ void getsym(void)
 		{
 			break;						// others
 		}
-	}
+	}// while
 
 	if (isalpha(ch))
 	{ // symbol is a reserved word or an identifier.
@@ -127,17 +126,17 @@ void getsym(void)
 		if (k > MAXNUMLEN)
 			error(25);     // The number is too great.
 	}
-	else if (ch == ':')
+	else if (ch == '=')
 	{
 		getch();
 		if (ch == '=')
 		{
-			sym = SYM_BECOMES; // :=
+			sym = SYM_EQU; // :=
 			getch();
 		}
 		else
 		{
-			sym = SYM_NULL;       // illegal?
+			sym = SYM_BECOMES;       // illegal?
 		}
 	}
 	else if(ch == '&')
@@ -196,6 +195,16 @@ void getsym(void)
 		{
 			sym = SYM_LES;     // <
 		}
+	}
+	else if (ch == '{')
+	{
+		sym = SYM_BEGIN;
+		getch();
+	}
+	else if (ch == '}')
+	{
+		sym = SYM_END;
+		getch();
 	}
 	else
 	{ // other tokens
@@ -336,7 +345,7 @@ void vardeclaration(void)
 void listcode(int from, int to)
 {
 	int i;
-	
+
 	printf("\n");
 	for (i = from; i < to; i++)
 	{
@@ -351,7 +360,7 @@ void factor(symset fsys)
 	void expression(symset fsys);
 	int i;
 	symset set;
-	
+
 	test(facbegsys, fsys, 24); // The symbol can not be as the beginning of an expression.
 
 	while (inset(sym, facbegsys))
@@ -407,7 +416,7 @@ void factor(symset fsys)
 			}
 		}
 		else if(sym == SYM_MINUS) // UMINUS,  Expr -> '-' Expr
-		{  
+		{
 			 getsym();
 			 expression(fsys);
 			 gen(OPR, 0, OPR_NEG);
@@ -421,7 +430,7 @@ void term(symset fsys)
 {
 	int mulop;
 	symset set;
-	
+
 	set = uniteset(fsys, createset(SYM_TIMES, SYM_SLASH, SYM_NULL));
 	factor(set);
 	while (sym == SYM_TIMES || sym == SYM_SLASH)
@@ -448,7 +457,7 @@ void expression(symset fsys)
 	symset set;
 
 	set = uniteset(fsys, createset(SYM_PLUS, SYM_MINUS, SYM_NULL));
-	
+
 	term(set);
 	while (sym == SYM_PLUS || sym == SYM_MINUS)
 	{
@@ -574,11 +583,11 @@ void statement(symset fsys)
 			}
 			else
 			{
-				error(15); // A constant or variable can not be called. 
+				error(15); // A constant or variable can not be called.
 			}
 			getsym();
 		}
-	} 
+	}
 	else if (sym == SYM_IF)
 	{ // if statement
 		getsym();
@@ -598,7 +607,7 @@ void statement(symset fsys)
 		cx1 = cx;
 		gen(JPC, 0, 0);
 		statement(fsys);
-		code[cx1].a = cx;	
+		code[cx1].a = cx;
 	}
 	else if (sym == SYM_BEGIN)
 	{ // block
@@ -654,7 +663,7 @@ void statement(symset fsys)
 	}
 	test(fsys, phi, 19);
 } // statement
-			
+
 //////////////////////////////////////////////////////////////////////
 void block(symset fsys)
 {
@@ -795,7 +804,7 @@ void block(symset fsys)
 int base(int stack[], int currentLevel, int levelDiff)
 {
 	int b = currentLevel;
-	
+
 	while (levelDiff--)
 		b = stack[b];
 	return b;
@@ -919,7 +928,7 @@ void interpret()
 } // interpret
 
 //////////////////////////////////////////////////////////////////////
-void main (int argc, char **argv)
+int main (int argc, char **argv)
 {
 	FILE* hbin;
 	char s[80];
@@ -937,21 +946,21 @@ void main (int argc, char **argv)
 			printf("File %s can't be opened.\n", s);
 			exit(1);
 		}
-	
+
 		phi = createset(SYM_NULL);
 		relset = createset(SYM_EQU, SYM_NEQ, SYM_LES, SYM_LEQ, SYM_GTR, SYM_GEQ, SYM_NULL);
-		
+
 		// create begin symbol sets
 		declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_NULL);
 		statbegsys = createset(SYM_BEGIN, SYM_CALL, SYM_IF, SYM_WHILE, SYM_NULL);
 		facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_LPAREN, SYM_MINUS, SYM_NULL);
-	
+
 		err = cc = cx = ll = 0; // initialize global variables
 		ch = ' ';
 		kk = MAXIDLEN;
-	
+
 		getsym();
-	
+
 		set1 = createset(SYM_PERIOD, SYM_NULL);
 		set2 = uniteset(declbegsys, statbegsys);
 		set = uniteset(set1, set2);
@@ -964,7 +973,7 @@ void main (int argc, char **argv)
 		destroyset(declbegsys);
 		destroyset(statbegsys);
 		destroyset(facbegsys);
-	
+
 		if (sym != SYM_PERIOD)
 			error(9); // '.' expected.
 		if (err == 0)
@@ -980,6 +989,7 @@ void main (int argc, char **argv)
 			printf("There are %d error(s) in PL/0 program.\n", err);
 		listcode(0, cx);
 	}
+	return 0;
 } // main
 
 //////////////////////////////////////////////////////////////////////
