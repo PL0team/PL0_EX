@@ -1,9 +1,9 @@
 #include <stdio.h>
 
-#define NRW        16     // number of reserved words
+#define NRW        15     // number of reserved words
 #define TXMAX      500    // length of identifier table
 #define MAXNUMLEN  14     // maximum number of digits in numbers
-#define NSYM       18     // maximum number of symbols in array ssym and csym
+#define NSYM       17     // maximum number of symbols in array ssym and csym
 #define MAXIDLEN   10     // length of identifiers
 
 #define MAXADDRESS 32767  // maximum address
@@ -27,10 +27,10 @@ enum symtype
 	SYM_TIMES,
 	SYM_SLASH,
 	SYM_MOD,
-	SYM_AND,
-	SYM_OR,
-	SYM_NOT,
-	SYM_XOR,
+	SYM_BIT_AND,
+	SYM_BIT_OR,
+	SYM_BIT_NOT,
+	SYM_BIT_XOR,
 	SYM_LOGIC_AND,
 	SYM_LOGIC_OR,
 	SYM_LOGIC_NOT,
@@ -49,10 +49,9 @@ enum symtype
 	SYM_SEMICOLON,
 	SYM_PERIOD,
 	SYM_BECOMES,
-  SYM_BEGIN,
+  	SYM_BEGIN,
 	SYM_END,
 	SYM_IF,
-	SYM_THEN,
 	SYM_ELIF,
 	SYM_ELSE,
 	SYM_FOR,
@@ -81,10 +80,11 @@ enum opcode
 enum oprcode
 {
 	OPR_RET, OPR_NEG, OPR_ADD, OPR_MIN,
-	OPR_MUL, OPR_DIV, OPR_ODD, OPR_EQU,
-	OPR_NEQ, OPR_LES, OPR_LEQ, OPR_GTR,
-	OPR_GEQ, OPR_NOT, OPR_LOGIC_NOT,
-	OPR_XOR
+	OPR_MUL, OPR_DIV, OPR_MOD, OPR_ODD,
+	OPR_EQU, OPR_NEQ, OPR_LES, OPR_LEQ,
+	OPR_GTR, OPR_GEQ, OPR_BIT_NOT,
+	OPR_LOGIC_NOT, OPR_LOGIC_AND, OPR_LOGIC_OR,
+	OPR_BIT_AND, OPR_BIT_XOR, OPR_BIT_OR
 };
 
 
@@ -166,14 +166,14 @@ int wsym[NRW + 1] =
 
 int ssym[NSYM + 1] =
 {
-	SYM_NULL, SYM_PLUS, SYM_MINUS, SYM_TIMES, SYM_SLASH, SYM_MOD, SYM_NOT, SYM_XOR, SYM_LOGIC_NOT,
+	SYM_NULL, SYM_PLUS, SYM_MINUS, SYM_TIMES, SYM_SLASH, SYM_MOD, SYM_BIT_NOT, SYM_BIT_XOR,
 	SYM_LPAREN, SYM_RPAREN, SYM_LINDEX, SYM_RINDEX, SYM_EQU, SYM_COMMA, SYM_PERIOD, SYM_SEMICOLON,
 	SYM_BEGIN, SYM_END
 };
 
 char csym[NSYM + 1] =
 {
-	' ', '+', '-', '*', '/', '%', '~', '^', '!', '(', ')', '[', ']', '=', ',', '.', ';','{', '}'
+	' ', '+', '-', '*', '/', '%', '~', '^', '(', ')', '[', ']', '=', ',', '.', ';','{', '}'
 };
 
 #define MAXINS   8

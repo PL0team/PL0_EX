@@ -131,38 +131,51 @@ void getsym(void)
 		getch();
 		if (ch == '=')
 		{
-			sym = SYM_EQU; // :=
+			sym = SYM_EQU; 		// ==
 			getch();
 		}
 		else
 		{
-			sym = SYM_BECOMES;       // illegal?
+			sym = SYM_BECOMES;     // =
 		}
 	}
 	else if(ch == '&')
 	{
 		getch();
-		if(ch == '&')
+		if(ch == '&')		// &&
 		{
 			sym = SYM_LOGIC_AND;
 			getch();
 		}
-		else
+		else		// &
 		{
-			sym = SYM_AND;
+			sym = SYM_BIT_AND;
 		}
 	}
 	else if(ch == '|')
 	{
 		getch();
-		if(ch == '|')
+		if(ch == '|')		// ||
 		{
 			sym = SYM_LOGIC_OR;
 			getch();
 		}
-		else
+		else		// |
 		{
-			sym = SYM_OR;
+			sym = SYM_BIT_OR;
+		}
+	}
+	else if(ch == '!')
+	{
+		getch();
+		if(ch == '=')		// !=
+		{
+			sym = SYM_NEQ;
+			getch();
+		}
+		else		// !
+		{
+			sym = SYM_LOGIC_NOT;
 		}
 	}
 	else if (ch == '>')
@@ -184,11 +197,6 @@ void getsym(void)
 		if (ch == '=')
 		{
 			sym = SYM_LEQ;     // <=
-			getch();
-		}
-		else if (ch == '>')
-		{
-			sym = SYM_NEQ;     // <>
 			getch();
 		}
 		else
@@ -413,23 +421,23 @@ void factor(symset fsys)
 			 expression(fsys);
 			 gen(OPR, 0, OPR_NEG);
 		}
-		else if (sym == SYM_LOGIC_NOT) // Ecpr -> '!' Expr
+		else if (sym == SYM_LOGIC_NOT) // Expr -> '!' Expr
 		{
 			getsym();
 			expression(fsys);
 			gen(OPR, 0, OPR_LOGIC_NOT);
 		}
-		else if (sym == SYM_NOT)
+		else if (sym == SYM_BIT_NOT)
 		{
 			getsym();
 			expression(fsys);
-			gen(OPR, 0, OPR_NOT);
+			gen(OPR, 0, OPR_BIT_NOT);
 		}
-		// else if (sym == SYM_XOR)
+		// else if (sym == SYM_BIT_XOR)
 		// {
 		// 	getsym();
 		// 	expression(fsys);
-		// 	gen(OPR, 0, OPR_XOR);
+		// 	gen(OPR, 0, OPR_BIT_XOR);
 		// }
 		test(fsys, createset(SYM_LPAREN, SYM_NULL), 23);
 	} // while
@@ -441,9 +449,9 @@ void term(symset fsys)
 	int mulop;
 	symset set;
 
-	set = uniteset(fsys, createset(SYM_TIMES, SYM_SLASH, SYM_NULL));
+	set = uniteset(fsys, createset(SYM_TIMES, SYM_SLASH, SYM_MOD, SYM_NULL));
 	factor(set);
-	while (sym == SYM_TIMES || sym == SYM_SLASH)
+	while (sym == SYM_TIMES || sym == SYM_SLASH || sym == SYM_MOD)
 	{
 		mulop = sym;
 		getsym();
@@ -452,16 +460,20 @@ void term(symset fsys)
 		{
 			gen(OPR, 0, OPR_MUL);
 		}
-		else
+		else if (mulop == SYM_SLASH)
 		{
 			gen(OPR, 0, OPR_DIV);
+		}
+		else
+		{
+			gen(OPR, 0, OPR_MOD);
 		}
 	} // while
 	destroyset(set);
 } // term
 
 //////////////////////////////////////////////////////////////////////
-void expression(symset fsys)
+void polyn(symset fsys)
 {
 	int addop;
 	symset set;
@@ -485,10 +497,10 @@ void expression(symset fsys)
 	} // while
 
 	destroyset(set);
-} // expression
+} // polyn
 
 //////////////////////////////////////////////////////////////////////
-void condition(symset fsys)
+void rel_expr(symset fsys)
 {
 	int relop;
 	symset set;
@@ -496,23 +508,19 @@ void condition(symset fsys)
 	if (sym == SYM_ODD)
 	{
 		getsym();
-		expression(fsys);
-		gen(OPR, 0, 6);
+		polyn(fsys);
+		gen(OPR, 0, OPR_ODD);
 	}
 	else
 	{
 		set = uniteset(relset, fsys);
-		expression(set);
+		polyn(set);
 		destroyset(set);
-		if (! inset(sym, relset))
-		{
-			error(20);
-		}
-		else
+		if (inset(sym, relset))
 		{
 			relop = sym;
 			getsym();
-			expression(fsys);
+			polyn(fsys);
 			switch (relop)
 			{
 			case SYM_EQU:
@@ -536,7 +544,90 @@ void condition(symset fsys)
 			} // switch
 		} // else
 	} // else
-} // condition
+} // rel_expr
+
+//////////////////////////////////////////////////////////////////////
+void bit_and_expr(symset fsys)
+{
+	symset set;
+	set = uniteset(fsys, createset(SYM_BIT_AND));
+	rel_expr(set);
+	while(sym == SYM_BIT_AND)
+	{
+		getsym();
+		rel_expr(set);
+		gen(OPR, 0, OPR_BIT_AND);
+	} // while
+	destroyset(set);
+} // bit_and_expr
+
+//////////////////////////////////////////////////////////////////////
+void bit_xor_expr(symset fsys)
+{
+	symset set;
+	set = uniteset(fsys, createset(SYM_BIT_XOR));
+	bit_and_expr(set);
+	while(sym == SYM_BIT_XOR)
+	{
+		getsym();
+		bit_and_expr(set);
+		gen(OPR, 0, OPR_BIT_XOR);
+	} // while
+	destroyset(set);
+} // bit_xor_expr
+
+//////////////////////////////////////////////////////////////////////
+void bit_or_expr(symset fsys)
+{
+	symset set;
+	set = uniteset(fsys, createset(SYM_BIT_OR));
+	bit_xor_expr(set);
+	while(sym == SYM_BIT_OR)
+	{
+		getsym();
+		bit_xor_expr(set);
+		gen(OPR, 0, OPR_BIT_OR);
+	} // while
+	destroyset(set);
+} // bit_or_expr
+
+//////////////////////////////////////////////////////////////////////
+void logic_and_expr(symset fsys)
+{
+	symset set;
+	set = uniteset(fsys, createset(SYM_LOGIC_AND));
+	bit_or_expr(set);
+	while(sym == SYM_LOGIC_AND)
+	{
+		getsym();
+		bit_or_expr(set);
+		gen(OPR, 0, OPR_LOGIC_AND);
+	} // while
+	destroyset(set);
+} // logic_and_expr
+
+//////////////////////////////////////////////////////////////////////
+void logic_or_expr(symset fsys)
+{
+	symset set;
+	set = uniteset(fsys, createset(SYM_LOGIC_OR));
+	logic_and_expr(set);
+	while(sym == SYM_LOGIC_OR)
+	{
+		getsym();
+		logic_and_expr(set);
+		gen(OPR, 0, OPR_LOGIC_OR);
+	} // while
+	destroyset(set);
+} // logic_or_expr
+
+//////////////////////////////////////////////////////////////////////
+void expression(symset fsys)
+{
+	logic_or_expr(fsys);
+} // expression
+
+/* The comment part(include 5 functions) is abandoned!
 //////////////////////////////////////////////////////////////////////
 void andExpression_(symset fysy) {
 	symset set = uniteset(fysy, createset(SYM_LOGIC_AND));
@@ -585,7 +676,7 @@ void conditionExpression(symset fsys) {
 		}
 		getsym();
 	}
-}
+}*/
 
 //////////////////////////////////////////////////////////////////////
 void statement(symset fsys)
@@ -650,9 +741,9 @@ void statement(symset fsys)
 	else if (sym == SYM_IF)
 	{ // if statement
 		getsym();
-		set1 = createset(SYM_THEN, SYM_DO, SYM_NULL);
+		set1 = createset(SYM_DO, SYM_NULL);
 		set = uniteset(set1, fsys);
-		conditionExpression(set);
+		expression(set);
 		destroyset(set1);
 		destroyset(set);
 		cx1 = cx;
@@ -695,7 +786,7 @@ void statement(symset fsys)
 		getsym();
 		set1 = createset(SYM_DO, SYM_NULL);
 		set = uniteset(set1, fsys);
-		orExpression(set);
+		expression(set);
 		destroyset(set1);
 		destroyset(set);
 		cx2 = cx;
@@ -896,15 +987,12 @@ void interpret()
 			case OPR_NEG:
 				stack[top] = -stack[top];
 				break;
-			case OPR_NOT:
+			case OPR_BIT_NOT:
 			 	stack[top] = ~stack[top];
 				break;
 			case OPR_LOGIC_NOT:
 				stack[top] = !stack[top];
 				break;
-			// case OPR_XOR:
-			// 	stack[top] = ^(stack[top]);  /* ^val  reports error */
-			// 	break;
 			case OPR_ADD:
 				top--;
 				stack[top] += stack[top + 1];
@@ -927,8 +1015,18 @@ void interpret()
 				}
 				stack[top] /= stack[top + 1];
 				break;
+			case OPR_MOD:
+				top --;
+				if( stack[top + 1] == 0)
+				{
+					fprintf(stderr, "Runtime Error: Divided by zero.\n");
+					fprintf(stderr, "Program terminated.\n");
+					continue;
+				}
+				stack[top] %= stack[top + 1];
+				break;
 			case OPR_ODD:
-				stack[top] %= 2;
+				stack[top] = (stack[top] % 2 == 1);
 				break;
 			case OPR_EQU:
 				top--;
@@ -937,6 +1035,7 @@ void interpret()
 			case OPR_NEQ:
 				top--;
 				stack[top] = stack[top] != stack[top + 1];
+				break;
 			case OPR_LES:
 				top--;
 				stack[top] = stack[top] < stack[top + 1];
@@ -944,6 +1043,7 @@ void interpret()
 			case OPR_GEQ:
 				top--;
 				stack[top] = stack[top] >= stack[top + 1];
+				break;
 			case OPR_GTR:
 				top--;
 				stack[top] = stack[top] > stack[top + 1];
@@ -951,6 +1051,27 @@ void interpret()
 			case OPR_LEQ:
 				top--;
 				stack[top] = stack[top] <= stack[top + 1];
+				break;
+			case OPR_BIT_AND:
+				top --;
+			 	stack[top] = stack[top] & stack[top + 1];
+			 	break;
+			case OPR_BIT_XOR:
+				top --;
+			 	stack[top] = stack[top] ^ stack[top + 1];
+				break;
+			case OPR_BIT_OR:
+				top --;
+				stack[top] = stack[top] | stack[top + 1];
+				break;
+			case OPR_LOGIC_AND:
+				top --;
+				stack[top] = stack[top] && stack[top + 1];
+				break;
+			case OPR_LOGIC_OR:
+				top --;
+				stack[top] = stack[top] || stack[top + 1];
+				break;
 			} // switch
 			break;
 		case LOD:
@@ -1013,7 +1134,7 @@ int main (int argc, char **argv)
 		// create begin symbol sets
 		declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_NULL);
 		statbegsys = createset(SYM_BEGIN, SYM_CALL, SYM_IF, SYM_WHILE, SYM_NULL);
-		facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_LPAREN, SYM_MINUS, SYM_LOGIC_NOT, SYM_NOT, SYM_NULL);
+		facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_LPAREN, SYM_MINUS, SYM_LOGIC_NOT, SYM_BIT_NOT, SYM_NULL);
 
 		err = cc = cx = ll = 0; // initialize global variables
 		ch = ' ';
