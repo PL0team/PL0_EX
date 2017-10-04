@@ -415,30 +415,24 @@ void factor(symset fsys)
 				error(22); // Missing ')'.
 			}
 		}
-		else if(sym == SYM_MINUS) // UMINUS,  Expr -> '-' Expr
+		else if(sym == SYM_MINUS) // UMINUS, Expr -> '-' Expr
 		{
 			 getsym();
 			 expression(fsys);
 			 gen(OPR, 0, OPR_NEG);
 		}
-		else if (sym == SYM_LOGIC_NOT) // Expr -> '!' Expr
+		else if (sym == SYM_LOGIC_NOT) // LOGIC_NOT, Expr -> '!' Expr
 		{
 			getsym();
 			expression(fsys);
 			gen(OPR, 0, OPR_LOGIC_NOT);
 		}
-		else if (sym == SYM_BIT_NOT)
+		else if (sym == SYM_BIT_NOT) // BIT_NOT, Expr -> '~' Expr
 		{
 			getsym();
 			expression(fsys);
 			gen(OPR, 0, OPR_BIT_NOT);
 		}
-		// else if (sym == SYM_BIT_XOR)
-		// {
-		// 	getsym();
-		// 	expression(fsys);
-		// 	gen(OPR, 0, OPR_BIT_XOR);
-		// }
 		test(fsys, createset(SYM_LPAREN, SYM_NULL), 23);
 	} // while
 } // factor
@@ -627,7 +621,31 @@ void expression(symset fsys)
 	logic_or_expr(fsys);
 } // expression
 
-/* The comment part(include 5 functions) is abandoned!
+//////////////////////////////////////////////////////////////////////
+void condition(symset fsys)
+{
+	symset set;
+	if (sym != SYM_LPAREN)
+	{
+		error(26);
+	} // if
+	else
+	{
+		getsym();
+		set = uniteset(fsys, createset(SYM_RPAREN));
+		expression(set);
+		destroyset(set);
+		if (sym != SYM_RPAREN)
+		{
+			error(22);
+		} // if
+		getsym();
+	} // else
+} // condition
+
+//////////////////////////////////////////////////////////////////////
+/* // The comment part(include 5 functions) is abandoned!
+
 //////////////////////////////////////////////////////////////////////
 void andExpression_(symset fysy) {
 	symset set = uniteset(fysy, createset(SYM_LOGIC_AND));
@@ -638,7 +656,6 @@ void andExpression_(symset fysy) {
 	destroyset(set);
 }
 
-//////////////////////////////////////////////////////////////////////
 void andExpression(symset fsys) {
 	symset set = uniteset(createset(SYM_LOGIC_AND), fsys);
 	condition(set);
@@ -743,7 +760,7 @@ void statement(symset fsys)
 		getsym();
 		set1 = createset(SYM_DO, SYM_NULL);
 		set = uniteset(set1, fsys);
-		expression(set);
+		condition(set);
 		destroyset(set1);
 		destroyset(set);
 		cx1 = cx;
@@ -786,7 +803,7 @@ void statement(symset fsys)
 		getsym();
 		set1 = createset(SYM_DO, SYM_NULL);
 		set = uniteset(set1, fsys);
-		expression(set);
+		condition(set);
 		destroyset(set1);
 		destroyset(set);
 		cx2 = cx;
