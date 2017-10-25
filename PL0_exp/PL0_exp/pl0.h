@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#define NRW        15     // number of reserved words
+#define NRW        16     // number of reserved words
 #define TXMAX      500    // length of identifier table
 #define MAXNUMLEN  14     // maximum number of digits in numbers
 #define NSYM       17     // maximum number of symbols in array ssym and csym
@@ -48,12 +48,13 @@ enum symtype
 	SYM_COMMA,
 	SYM_SEMICOLON,
 	SYM_PERIOD,
-	SYM_BECOMES,
+	SYM_ASSIGN,
   	SYM_BEGIN,
 	SYM_END,
 	SYM_IF,
 	SYM_ELIF,
 	SYM_ELSE,
+	SYM_PRINT,
 	SYM_FOR,
 	SYM_WHILE,
 	SYM_DO,
@@ -69,12 +70,12 @@ enum symtype
 
 enum idtype
 {
-	ID_CONSTANT, ID_VARIABLE, ID_PROCEDURE
+	ID_CONSTANT, ID_VARIABLE, ID_PROCEDURE, ID_ARGUMENT
 };
 
 enum opcode
 {
-	LIT, OPR, LOD, STO, CAL, INT, JMP, JPC
+	LIT, OPR, LOD, STO, CAL, INT, JMP, JPC, RET, OUT
 };
 
 enum oprcode
@@ -107,28 +108,28 @@ char* err_msg[] =
 /*  6 */    "Incorrect procedure name.",
 /*  7 */    "Statement expected.",
 /*  8 */    "Follow the statement is an incorrect symbol.",
-/*  9 */    "'.' expected.",
+/*  9 */    "'$' expected.",
 /* 10 */    "';' expected.",
 /* 11 */    "Undeclared identifier.",
 /* 12 */    "Illegal assignment.",
-/* 13 */    "':=' expected.",
+/* 13 */    "'=' expected.",
 /* 14 */    "There must be an identifier to follow the 'call'.",
 /* 15 */    "A constant or variable can not be called.",
-/* 16 */    "",
-/* 17 */    "';' or 'end' expected.",
+/* 16 */    "Argument expected.",
+/* 17 */    "';' or '}' expected.",
 /* 18 */    "'do' expected.",
 /* 19 */    "Incorrect symbol.",
 /* 20 */    "Relative operators expected.",
 /* 21 */    "Procedure identifier can not be in an expression.",
-/* 22 */    "Missing ')'."
+/* 22 */    "Missing ')'.",
 /* 23 */    "The symbol can not be followed by a factor.",
 /* 24 */    "The symbol can not be as the beginning of an expression.",
 /* 25 */    "The number is too great.",
-/* 26 */    "Missing '('",
-/* 27 */    "",
-/* 28 */    "",
-/* 29 */    "",
-/* 30 */    "",
+/* 26 */    "Missing '('.",
+/* 27 */    "'{' expectes.",
+/* 28 */    "'}' expected.",
+/* 29 */    "'}' or '$' expected.",
+/* 30 */    "Argc can't match.",
 /* 31 */    "",
 /* 32 */    "There are too many levels."
 };
@@ -143,8 +144,9 @@ int  ll;         // line length
 int  kk;
 int  err;
 int  cx;         // index of current instruction to be generated.
+				 // next item num in code list, point to empty item
 int  level = 0;
-int  tx = 0;
+int  tx = 0;	 // last item num in symbol table, point to entered item
 
 char line[80];
 
@@ -153,14 +155,14 @@ instruction code[CXMAX];
 char* word[NRW + 1] =
 {
 	"", /* place holder */
-	"call", "const", "do", "if", "elif", "else",
+	"call", "const", "do", "if", "elif", "else", "print", 
 	"odd", "procedure", "return", "exit", "var", "for", "while", "break", "continue"
 };
 
 int wsym[NRW + 1] =
 {
 	SYM_NULL,
-	SYM_CALL, SYM_CONST, SYM_DO, SYM_IF, SYM_ELIF, SYM_ELSE,
+	SYM_CALL, SYM_CONST, SYM_DO, SYM_IF, SYM_ELIF, SYM_ELSE, SYM_PRINT, 
 	SYM_ODD, SYM_PROCEDURE, SYM_RETURN, SYM_EXIT, SYM_VAR, SYM_FOR, SYM_WHILE, SYM_BREAK, SYM_CONTINUE
 };
 
@@ -173,13 +175,13 @@ int ssym[NSYM + 1] =
 
 char csym[NSYM + 1] =
 {
-	' ', '+', '-', '*', '/', '%', '~', '^', '(', ')', '[', ']', '=', ',', '.', ';','{', '}'
+	' ', '+', '-', '*', '/', '%', '~', '^', '(', ')', '[', ']', '=', ',', '$', ';','{', '}'
 };
 
-#define MAXINS   8
+#define MAXINS   10
 char* mnemonic[MAXINS] =
 {
-	"LIT", "OPR", "LOD", "STO", "CAL", "INT", "JMP", "JPC"
+	"LIT", "OPR", "LOD", "STO", "CAL", "INT", "JMP", "JPC", "RET", "OUT"
 };
 
 typedef struct
@@ -187,6 +189,7 @@ typedef struct
 	char name[MAXIDLEN + 1];
 	int  kind;
 	int  value;
+	int  info;
 } comtab;
 
 comtab table[TXMAX];
@@ -197,6 +200,7 @@ typedef struct
 	int   kind;
 	short level;
 	short address;
+	int   argc;
 } mask;
 
 FILE* infile;

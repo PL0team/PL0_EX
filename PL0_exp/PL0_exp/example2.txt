@@ -1,10 +1,9 @@
 var i;
-procedure p;
-begin
-  i := 2;
-end;
-
-begin
-  i := 1;
-  call p;
-end.
+procedure p()
+{
+    i = 2;
+}
+i = 1;
+p();
+print(i);
+$

@@ -1,0 +1,10 @@
+// stack_structure
+// (from low index to high index)
+
+b - X   |   return value                |
+b - 1   |   args(from left to right)    |
+b + 0   |	visit list                  | <- new b
+b + 1   |	control list (= old b)	    |
+b + 2   |	return address              |
+b + 3   |	local var		            |
+b + Y   |	used as reg		            | <- stack top
