@@ -11,6 +11,10 @@
 #define CXMAX      500    // size of code array
 
 #define MAXSYM     30     // maximum number of symbols
+#define MAXDIM     10     // maximum dimension of arrays
+#define MAXARR     30     // maxinum number of arrays
+#define MAXPROC    30     // maxinum number of procedure
+#define MAXARGC    10	  // maxinum number of procedure argument
 
 #define STACKSIZE  1000   // maximum storage
 
@@ -70,12 +74,12 @@ enum symtype
 
 enum idtype
 {
-	ID_CONSTANT, ID_VARIABLE, ID_PROCEDURE, ID_ARGUMENT
+	ID_CONSTANT, ID_VARIABLE, ID_PROCEDURE, ID_ARRAY
 };
 
 enum opcode
 {
-	LIT, OPR, LOD, STO, CAL, INT, JMP, JPC, RET, OUT
+	LIT, OPR, LOD, STO, CAL, INT, JMP, JPC, RET, OUT, ALOD, ASTO
 };
 
 enum oprcode
@@ -130,8 +134,12 @@ char* err_msg[] =
 /* 28 */    "'}' expected.",
 /* 29 */    "'}' or '$' expected.",
 /* 30 */    "Argc can't match.",
-/* 31 */    "",
-/* 32 */    "There are too many levels."
+/* 31 */    "Number expected.",
+/* 32 */    "There are too many levels.",
+/* 33 */	"']' expected.",
+/* 34 */ 	"The symbol can't be the type of a argument.",
+/* 35 */	"'[' expected.",
+/* 36 */	"Array dimension can't match."
 };
 
 //////////////////////////////////////////////////////////////////////
@@ -147,6 +155,8 @@ int  cx;         // index of current instruction to be generated.
 				 // next item num in code list, point to empty item
 int  level = 0;
 int  tx = 0;	 // last item num in symbol table, point to entered item
+int  ax = 0;	 // last item num in array table, point to entered item
+int  px = 0;	 // last item num in procedure table, point to entered item
 
 char line[80];
 
@@ -178,10 +188,21 @@ char csym[NSYM + 1] =
 	' ', '+', '-', '*', '/', '%', '~', '^', '(', ')', '[', ']', '=', ',', '$', ';','{', '}'
 };
 
-#define MAXINS   10
+#define MAXINS   12
 char* mnemonic[MAXINS] =
 {
-	"LIT", "OPR", "LOD", "STO", "CAL", "INT", "JMP", "JPC", "RET", "OUT"
+	"LIT", "OPR", "LOD", "STO", "CAL", "INT", "JMP", "JPC", "RET", "OUT", "ALOD", "ASTO"
+};
+
+#define MAXOPR 21
+char* oprname[MAXOPR] =
+{
+	"RET", "NEG", "ADD", "MIN",
+	"MUL", "DIV", "MOD", "ODD",
+	"EQU", "NEQ", "LES", "LEQ",
+	"GTR", "GEQ", "BIT_NOT",
+	"LOGIC_NOT", "LOGIC_AND", "LOGIC_OR",
+	"BIT_AND", "BIT_XOR", "BIT_OR"
 };
 
 typedef struct
@@ -189,7 +210,7 @@ typedef struct
 	char name[MAXIDLEN + 1];
 	int  kind;
 	int  value;
-	int  info;
+	int  index;
 } comtab;
 
 comtab table[TXMAX];
@@ -200,8 +221,25 @@ typedef struct
 	int   kind;
 	short level;
 	short address;
-	int   argc;
+	int   index;
 } mask;
+
+typedef struct
+{
+	int dimension;
+	int up[MAXDIM];
+	int count[MAXDIM];
+} arrayinfo;
+
+arrayinfo arraytable[MAXARR];
+
+typedef struct
+{
+	int argc;
+	int type[MAXARGC];
+} procinfo;
+
+procinfo proctable[MAXPROC];
 
 FILE* infile;
 
