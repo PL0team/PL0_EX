@@ -250,7 +250,7 @@ void backpatch(codelist l, int num)
 	while(p != NULL)
 	{
 		l->next = p->next;
-		code[p->elem].a = num;
+		code[p->elem].a = num - (p->elem);
 		p->elem = -1000000;
 		free(p);
 		p = l->next;
@@ -335,7 +335,7 @@ void logic2num(codelist truelist, codelist falselist)
 	{
 		backpatch(truelist, cx);
 		gen(LIT, 0, 1);
-		gen(JMP, 0, cx + 2);
+		gen(JMP, 0, 2);
 		backpatch(falselist, cx);
 		gen(LIT, 0, 0);
 	}
@@ -819,14 +819,12 @@ void rel_expr(symset fsys, codelist truelist, codelist falselist)
 	{
 		set = uniteset(relset, fsys);
 		polyn(set, truelist, falselist);
-		destroyset(set);
-		if(inset(sym, relset))
-			logic2num(truelist, falselist);
-		if (inset(sym, relset))
+		while (inset(sym, relset))
 		{
+			logic2num(truelist, falselist);
 			relop = sym;
 			getsym();
-			polyn(fsys, truelist, falselist);
+			polyn(set, truelist, falselist);
 			logic2num(truelist, falselist);
 			switch (relop)
 			{
@@ -873,7 +871,8 @@ void rel_expr(symset fsys, codelist truelist, codelist falselist)
 				gen(JMP, 0, 0);
 				break;
 			} // switch
-		} // else
+		} // while
+		destroyset(set);
 	} // else
 } // rel_expr
 
@@ -953,6 +952,8 @@ void logic_and_expr(symset fsys, codelist truelist, codelist falselist)
 	{
 		unitelist(falselist, bit_falselist);
 		backpatch(bit_truelist, cx);
+		if(code[cx - 1].f == JMP && code[cx - 1].a == cx)
+			cx --;
 		getsym();
 		bit_or_expr(set, bit_truelist, bit_falselist);
 		num2logic(bit_truelist, bit_falselist);
@@ -983,6 +984,8 @@ void logic_or_expr(symset fsys, codelist truelist, codelist falselist)
 		getsym();
 		unitelist(truelist, and_truelist);
 		backpatch(and_falselist, cx);
+		if(code[cx - 1].f == JMP && code[cx - 1].a == cx)
+			cx --;
 		logic_and_expr(set, and_truelist, and_falselist);
 		num2logic(and_truelist, and_falselist);
 		//gen(OPR, 0, OPR_LOGIC_OR);
@@ -999,15 +1002,54 @@ void logic_or_expr(symset fsys, codelist truelist, codelist falselist)
 void condition_assign_expr(symset fsys, codelist truelist, codelist falselist)
 {
 	codelist or_truelist, or_falselist;
+	symset set, set0;
+	int cx0;
 	or_truelist = createlist();
 	or_falselist = createlist();
-	logic_or_expr(fsys, or_truelist, or_falselist);
+	set0 = createset(SYM_QUES, SYM_COLON, SYM_NULL);
+	set = uniteset(fsys, set0);
+	logic_or_expr(set, or_truelist, or_falselist);
 	if(sym == SYM_QUES)
 	{
-		// Todo
+		num2logic(or_truelist, or_falselist);
+		backpatch(or_truelist, cx);
+		if(code[cx - 1].f == JMP && code[cx - 1].a == cx)
+			cx --;
+		getsym();
+		condition_assign_expr(set, NULL, NULL);
+		cx0 = cx;
+		gen(JMP, 0, 0);
+		if(sym == SYM_COLON)
+		{
+			backpatch(or_falselist, cx);
+			getsym();
+			condition_assign_expr(set, NULL, NULL);
+			code[cx0].a = cx;
+		}
+		else
+		{
+			error(37);		// ':' expected.
+		}
+		if(truelist != NULL)
+		{
+			unitelist(truelist, or_truelist);
+			unitelist(falselist, or_falselist);
+		}
 	}
-	unitelist(truelist, or_truelist);
-	unitelist(falselist, or_falselist);
+	else
+	{
+		if(truelist == NULL)
+		{
+			logic2num(or_truelist, or_falselist);
+		}
+		else
+		{
+			unitelist(truelist, or_truelist);
+			unitelist(falselist, or_falselist);
+		}
+	}
+	destroyset(set);
+	destroyset(set0);
 	destroylist(or_truelist);
 	destroylist(or_falselist);
 } // condition_assign_expr
@@ -1105,20 +1147,23 @@ void condition(symset fsys, codelist truelist, codelist falselist)
 //////////////////////////////////////////////////////////////////////
 void statement(symset fsys)
 {
-	void compound_statement(symset fsys);
+	void multi_statement(symset fsys);
 	int cx0;
 	int count;
-	symset set1, set;
-	codelist truelist, falselist;
-
+	symset set0, set;
+	symset set1, set2;
+	codelist truelist, falselist, nextlist;
+	
+	set0 = createset(SYM_IF, SYM_ELIF, SYM_ELSE, SYM_WHILE, SYM_DO, SYM_FOR, SYM_NULL);
+	set = uniteset(fsys, set0);
 	if (sym == SYM_IDENTIFIER)
 	{ // assign statement
 		assign_expr(fsys, NULL, NULL);
 		gen(INT, 0, -1);		// recycle stack room storing assign value
 		if(sym == SYM_SEMICOLON)
-			getsym();
+		getsym();
 		else
-			error(10);			// ';' expected.
+		error(10);			// ';' expected.
 	}
 	else if(sym == SYM_PRINT)
 	{ // print statement
@@ -1126,17 +1171,17 @@ void statement(symset fsys)
 		count = args_list(fsys);
 		gen(OUT, 0, count);
 		if(sym == SYM_SEMICOLON)
-			getsym();
+		getsym();
 		else
-			error(10);			// ';' expected.
+		error(10);			// ';' expected.
 	}
 	else if(sym == SYM_RETURN)
 	{ // return statement
 		getsym();
 		if(sym != SYM_SEMICOLON)
-			expression(fsys, NULL, NULL);		// return value
+		expression(fsys, NULL, NULL);		// return value
 		else
-			gen(LIT, 0, 0);		// return 0 in default
+		gen(LIT, 0, 0);		// return 0 in default
 		mask *mk;
 		if(curr_proc)
 		{
@@ -1148,39 +1193,52 @@ void statement(symset fsys)
 			gen(RET, 0, 0);
 		}
 		if(sym == SYM_SEMICOLON)
-			getsym();
+		getsym();
 		else
-			error(10);			// ';' expected.
+		error(10);			// ';' expected.
 	}
 	else if (sym == SYM_IF)
 	{ // if statement
 		truelist = createlist();
 		falselist = createlist();
+		nextlist = createlist();
 		getsym();
-		set1 = createset(SYM_DO, SYM_NULL);
-		set = uniteset(set1, fsys);
-		condition(set, truelist, falselist);
-		destroyset(set1);
-		destroyset(set);
+		condition(fsys, truelist, falselist);
 		//cx1 = cx;
 		//gen(JPC, 0, 0);
 		backpatch(truelist, cx);
-		compound_statement(fsys);
+		statement(set);
+		insertlist(nextlist, cx);
+		gen(JMP, 0, 0);
+		while(sym == SYM_ELIF)
+		{
+			backpatch(falselist, cx);
+			getsym();
+			condition(fsys, truelist, falselist);
+			backpatch(truelist, cx);
+			statement(set);
+			insertlist(nextlist, cx);
+			gen(JMP, 0, 0);
+		}
 		if(sym == SYM_ELSE)
 		{
-			cx0 = cx;
-			gen(JMP, 0, 0);
+			//cx0 = cx;
+			//gen(JMP, 0, 0);
 			backpatch(falselist, cx);
-			compound_statement(fsys);
-			code[cx0].a = cx;
+			getsym();
+			statement(set);
+			backpatch(nextlist, cx);
+			//code[cx0].a = cx;
 		}
 		else
 		{
 			backpatch(falselist, cx);
+			backpatch(nextlist, cx);
 		}
 		//code[cx1].a = cx;
 		destroylist(truelist);
 		destroylist(falselist);
+		destroylist(nextlist);
 	}
 	else if (sym == SYM_WHILE)
 	{ // while statement
@@ -1188,25 +1246,93 @@ void statement(symset fsys)
 		falselist = createlist();
 		cx0 = cx;
 		getsym();
-		set1 = createset(SYM_DO, SYM_NULL);
-		set = uniteset(set1, fsys);
-		condition(set, truelist, falselist);
-		destroyset(set1);
-		destroyset(set);
+		condition(fsys, truelist, falselist);
 		//cx2 = cx;
 		//gen(JPC, 0, 0);
 		backpatch(truelist, cx);
-		compound_statement(fsys);
-		gen(JMP, 0, cx0);
+		statement(set);
+		gen(JMP, 0, cx0 - cx);
 		//code[cx2].a = cx;
 		backpatch(falselist, cx);
 		destroylist(truelist);
 		destroylist(falselist);
 	}
+	else if(sym == SYM_FOR)
+	{ // for statement
+		int start, end, con;
+		int i;
+		truelist = createlist();
+		falselist = createlist();
+		set1 = createset(SYM_LPAREN, SYM_RPAREN, SYM_COMMA, SYM_SEMICOLON, SYM_NULL);
+		set2 = uniteset(fsys, set1);
+		getsym();
+		if(sym == SYM_LPAREN)
+		{
+			do
+			{
+				getsym();
+				expression(set2, NULL, NULL);
+			}
+			while(sym == SYM_COMMA);
+			if(sym == SYM_SEMICOLON)
+			{
+				con = cx;
+				getsym();
+				expression(set2, truelist, falselist);
+				num2logic(truelist, falselist);
+				if(sym == SYM_SEMICOLON)
+				{
+					start = cx;
+					do
+					{
+						getsym();
+						expression(set2, NULL, NULL);
+					}
+					while(sym == SYM_COMMA);
+					end = cx - 1;
+					if(sym == SYM_RPAREN)
+					{
+						getsym();
+						statement(set);
+						// move code segment
+						for(i = start; i <= end; cx ++, i ++)
+						code[cx] = code[i];
+						cx0 = cx - 1;
+						for(cx = start, i = end + 1; i <= cx0; cx ++, i ++)
+						code[cx] = code[i];
+						backpatch(truelist, start);
+						gen(JMP, 0, con - cx);
+						backpatch(falselist, cx);
+					}
+					else
+						error(22);		// Missing ')'.
+				}
+				else
+					error(10);		//';' expected.	
+			}
+			else
+				error(10);		//';' expected.
+		}
+		else
+			error(26);		// Missing '('.
+		destroyset(set1);
+		destroyset(set2);
+	}
 	else if (sym == SYM_BEGIN)
 	{ // compound_statement
-		compound_statement(fsys);
+		set1 = createset(SYM_BEGIN, SYM_END, SYM_NULL);
+		set2 = uniteset(fsys, set0);
+		getsym();
+		multi_statement(set);
+		if(sym == SYM_END)
+			getsym();
+		else
+			error(28);		// '}' expected.
+		destroyset(set1);
+		destroyset(set2);
 	}
+	destroyset(set);
+	destroyset(set0);
 	test(fsys, phi, 19);
 } // statement
 
@@ -1223,29 +1349,6 @@ void multi_statement(symset fsys)
 		error(29);				// '}' or '$' expected.
 	destroyset(set);
 } //  multi_statement
-
-//////////////////////////////////////////////////////////////////////
-void compound_statement(symset fsys)
-{
-	symset set0, set;
-	set0 = createset(SYM_BEGIN, SYM_END, SYM_NULL);
-	set = uniteset(fsys, set0);
-	if(sym == SYM_BEGIN)
-	{
-		getsym();
-		multi_statement(set);
-		if(sym == SYM_END)
-			getsym();
-		else
-			error(28);		// '}' expected.
-	}
-	else
-	{
-		statement(set);
-	}
-	destroyset(set);
-	destroyset(set0);
-} //  compound_statement
 
 //////////////////////////////////////////////////////////////////////
 void block(symset fsys)
@@ -1522,7 +1625,8 @@ void interpret()
 		case STO:
 			stack[base(stack, b, i.l) + i.a] = stack[top];
 			// printf("%d\n", stack[top]);
-			// top--;		// reserve value for assign expr
+			// reserve value for assign expr
+			// top--;
 			break;
 		case ALOD:
 			offset = stack[top];
@@ -1534,7 +1638,8 @@ void interpret()
 			stack[top - 1] = stack[top];
 			top --;
 			// printf("%d\n", stack[top]);
-			// top--;		// reserve value for assign expr
+			// reserve value for assign expr
+			// top--;
 			break;
 		case CAL:
 			stack[top + 1] = base(stack, b, i.l);
@@ -1548,56 +1653,56 @@ void interpret()
 			top += i.a;
 			break;
 		case JMP:
-			pc = i.a;
+			pc = i.a + pc - 1;
 			break;
 		case JPC:
 			if (stack[top] == 0)
-				pc = i.a;
+				pc = i.a + pc - 1;
 			top--;
 			break;
 		case JZ:
 			if(stack[top] == 0)
-				pc = i.a;
+				pc = i.a + pc - 1;
 			top --;
 			break;
 		case JNZ:
 			if(stack[top] != 0)
-				pc = i.a;
+				pc = i.a + pc - 1;
 			top --;
 			break;
 		case JOD:
 			if(stack[top] % 2 == 1)
-				pc = i.a;
+				pc = i.a + pc - 1;
 			top --;
 			break;
 		case JE:
 			if(stack[top - 1] == stack[top])
-				pc = i.a;
+				pc = i.a + pc - 1;
 			top -= 2;
 			break;
 		case JNE:
 			if(stack[top - 1] != stack[top])
-				pc = i.a;
+				pc = i.a + pc - 1;
 			top -= 2;
 			break;
 		case JG:
 			if(stack[top - 1] > stack[top])
-				pc = i.a;
+				pc = i.a + pc - 1;
 			top -= 2;
 			break;
 		case JGE:
 			if(stack[top - 1] >= stack[top])
-				pc = i.a;
+				pc = i.a + pc - 1;
 			top -= 2;
 			break;
 		case JL:
 			if(stack[top - 1] < stack[top])
-				pc = i.a;
+				pc = i.a + pc - 1;
 			top -= 2;
 			break;
 		case JLE:
 			if(stack[top - 1] <= stack[top])
-				pc = i.a;
+				pc = i.a + pc - 1;
 			top -= 2;
 			break;
 		case OUT:
@@ -1644,7 +1749,7 @@ int main (int argc, char **argv)
 
 		// create begin symbol sets
 		declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_NULL);
-		statbegsys = createset(SYM_IDENTIFIER, SYM_PRINT, SYM_RETURN, SYM_IF, SYM_WHILE, SYM_BEGIN, SYM_NULL);
+		statbegsys = createset(SYM_IDENTIFIER, SYM_PRINT, SYM_RETURN, SYM_IF, SYM_WHILE, SYM_DO, SYM_FOR, SYM_BEGIN, SYM_NULL);
 		facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_LPAREN, SYM_MINUS, SYM_LOGIC_NOT, SYM_BIT_NOT, SYM_NULL);
 
 		err = cc = cx = ll = 0; // initialize global variables

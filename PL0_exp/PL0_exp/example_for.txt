@@ -1,0 +1,15 @@
+var i, j, k;
+for(i = 0, j = 0, k = 0; i <= 10; i = i + 1, j = j + 2)
+{
+    print(i, j);
+    k = k + i;
+}
+print(k);
+i = 0;
+while(i < 10)
+{
+    if(odd i)
+        print(i);
+    i = i + 1;
+}
+$

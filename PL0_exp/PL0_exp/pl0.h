@@ -141,7 +141,8 @@ char* err_msg[] =
 /* 33 */	"']' expected.",
 /* 34 */ 	"The symbol can't be the type of a argument.",
 /* 35 */	"'[' expected.",
-/* 36 */	"Array dimension can't match."
+/* 36 */	"Array dimension can't match.",
+/* 37 */	"':' expected."
 };
 
 //////////////////////////////////////////////////////////////////////
