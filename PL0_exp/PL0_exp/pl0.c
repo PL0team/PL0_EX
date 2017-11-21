@@ -14,7 +14,7 @@
 //////////////////////////////////////////////////////////////////////
 int dx; 	 			// data allocation index
 						// address of var in stack frame
-int id_read_ahead;		// whether id already processed, used in assign_expr
+//int id_read_ahead;		// whether id already processed, used in assign_expr
 int curr_proc;			// the procedure which return statement belongs to
 
 //////////////////////////////////////////////////////////////////////
@@ -243,6 +243,22 @@ void gen(int f, int l, int a)
 } // gen
 
 //////////////////////////////////////////////////////////////////////
+void backpatch(codelist l, int num)
+{
+	snode *p;
+	p = l->next;
+	while(p != NULL)
+	{
+		l->next = p->next;
+		code[p->elem].a = num;
+		p->elem = -1000000;
+		free(p);
+		p = l->next;
+	}
+
+} // backpatch
+
+//////////////////////////////////////////////////////////////////////
 // tests if error occurs and skips all symbols that do not belongs to s1 or s2.
 // s1 is FIRST[A];
 // test whether sym in s1, error when not
@@ -313,6 +329,42 @@ int position(char* id)
 } // position
 
 //////////////////////////////////////////////////////////////////////
+void logic2num(codelist truelist, codelist falselist)
+{
+	if(! isempty(truelist))
+	{
+		backpatch(truelist, cx);
+		gen(LIT, 0, 1);
+		gen(JMP, 0, cx + 2);
+		backpatch(falselist, cx);
+		gen(LIT, 0, 0);
+	}
+} // logic2num
+
+//////////////////////////////////////////////////////////////////////
+void num2logic(codelist truelist, codelist falselist)
+{
+	if(isempty(truelist))
+	{
+		insertlist(falselist, cx);
+		gen(JZ, 0, 0);
+		insertlist(truelist, cx);
+		gen(JMP, 0, 0);
+	}
+} // num2logic
+
+//////////////////////////////////////////////////////////////////////
+void listcode(int from, int to)
+{
+	int i;
+
+	printf("\n");
+	for (i = from; i < to; i++)
+		printf("%5d %s\t%d\t%d\n", i, mnemonic[code[i].f], code[i].l, code[i].a);
+	printf("\n");
+} // listcode
+
+//////////////////////////////////////////////////////////////////////
 void constdeclaration()
 {
 	if (sym == SYM_IDENTIFIER)
@@ -346,6 +398,7 @@ void constdeclaration()
 void vardeclaration(void)
 {
 	int dim;
+	int i;
 	if (sym == SYM_IDENTIFIER)
 	{
 		getsym();
@@ -365,9 +418,29 @@ void vardeclaration(void)
 					arraytable[ax].up[dim] = num - 1;
 					dim += 1;
 				}
+				else if(sym == SYM_IDENTIFIER)
+				{
+					if((i = position(id)) == 0)
+					{
+						error(11); // Undeclared identifier.
+						getsym();
+					} // if
+					else
+					{
+						if(table[i].kind == ID_CONSTANT)
+						{
+							arraytable[ax].up[dim] = table[i].value - 1;
+							dim += 1;
+						}
+						else
+						{
+							error(31);			// Number or const expected.
+						}
+					}
+				}
 				else
 				{
-					error(31);		// Number expected.
+					error(31);		// Number or const expected.
 				}
 				getsym();
 				if(sym == SYM_RINDEX)
@@ -451,25 +524,9 @@ void args_decl(symset fsys)
 } // args_decl
 
 //////////////////////////////////////////////////////////////////////
-void listcode(int from, int to)
-{
-	int i;
-
-	printf("\n");
-	for (i = from; i < to; i++)
-	{
-		if(code[i].f == OPR)
-			printf("%5d %s\t%d\t%s\n", i, mnemonic[code[i].f], code[i].l, oprname[code[i].a]);
-		else
-			printf("%5d %s\t%d\t%d\n", i, mnemonic[code[i].f], code[i].l, code[i].a);
-	}
-	printf("\n");
-} // listcode
-
-//////////////////////////////////////////////////////////////////////
 int args_list(symset fsys)
 {
-	void expression(symset fsys);
+	void expression(symset fsys, codelist truelist, codelist falselist);
 	symset set, set0;
 	int count = 0;
 
@@ -480,12 +537,13 @@ int args_list(symset fsys)
 		{
 			set0 = createset(SYM_COMMA, SYM_LPAREN, SYM_RPAREN, SYM_NULL);
 			set = uniteset(fsys, set0);
-			expression(set);
+			expression(set, NULL, NULL);
 			count += 1;
 			while(sym == SYM_COMMA)
 			{
 				getsym();
-				expression(set);		// result will store on top of stack and become real argment
+				expression(set, NULL, NULL);
+				// result will store on top of stack and become real argment
 				count += 1;
 			} // while
 			destroyset(set);
@@ -527,7 +585,7 @@ void proc_call(symset fsys, int i)
 //////////////////////////////////////////////////////////////////////
 void array_index(symset fsys, int i)
 {
-	void expression(symset fsys);
+	void expression(symset fsys, codelist truelist, codelist falselist);
 	int count;
 	int index = ((mask*) &table[i])->index;
 	symset set0, set;
@@ -537,7 +595,7 @@ void array_index(symset fsys, int i)
 	if(sym == SYM_LINDEX)
 	{
 		getsym();
-		expression(set);
+		expression(set, NULL, NULL);
 		gen(LIT, 0, arraytable[index].count[count]);
 		gen(OPR, 0, OPR_MUL);
 		count += 1;
@@ -548,7 +606,7 @@ void array_index(symset fsys, int i)
 		while(sym == SYM_LINDEX && count < arraytable[index].dimension)
 		{
 			getsym();
-			expression(set);
+			expression(set, NULL, NULL);
 			gen(LIT, 0, arraytable[index].count[count]);
 			gen(OPR, 0, OPR_MUL);
 			gen(OPR, 0, OPR_ADD);
@@ -570,121 +628,127 @@ void array_index(symset fsys, int i)
 } // array_index
 
 //////////////////////////////////////////////////////////////////////
-void factor(symset fsys)
+void factor(symset fsys, codelist truelist, codelist falselist)
 {
-	void expression(symset fsys);
+	void expression(symset fsys, codelist truelist, codelist falselist);
 	int i;
 	symset set, set0;
+	codelist sub_truelist, sub_falselist;
 
-	if(id_read_ahead == 1)
+	test(facbegsys, fsys, 24); // The symbol can not be as the beginning of an expression.
+	
+	if (inset(sym, facbegsys))
 	{
-		id_read_ahead = 0;
-	} // if
-	else
-	{
-		test(facbegsys, fsys, 24); // The symbol can not be as the beginning of an expression.
-		
-		if (inset(sym, facbegsys))
+		if (sym == SYM_IDENTIFIER)
 		{
-			if (sym == SYM_IDENTIFIER)
+			if ((i = position(id)) == 0)
 			{
-				if ((i = position(id)) == 0)
-				{
-					error(11); // Undeclared identifier.
-					getsym();
-				} // if
-				else
-				{
-					switch (table[i].kind)
-					{
-						mask* mk;
-						case ID_CONSTANT:
-							gen(LIT, 0, table[i].value);
-							getsym();
-							break;
-						case ID_VARIABLE:
-							mk = (mask*) &table[i];
-							gen(LOD, level - mk->level, mk->address);
-							getsym();
-							break;
-						case ID_ARRAY:
-							mk = (mask*) &table[i];
-							getsym();
-							array_index(fsys, i);
-							gen(ALOD, level - mk->level, mk->address);
-							break;
-						case ID_PROCEDURE:
-							proc_call(fsys, i);
-							break;
-					} // switch
-				} // else
-			} // if
-			else if (sym == SYM_NUMBER)
-			{
-				if (num > MAXADDRESS)
-				{
-					error(25); // The number is too great.
-					num = 0;
-				}
-				gen(LIT, 0, num);
+				error(11); // Undeclared identifier.
 				getsym();
 			} // if
-			else if (sym == SYM_LPAREN)
+			else
 			{
-				getsym();
-				set0 = createset(SYM_RPAREN, SYM_NULL);
-				set = uniteset(set0, fsys);
-				expression(set);
-				destroyset(set);
-				destroyset(set0);
-				if (sym == SYM_RPAREN)
+				switch (table[i].kind)
 				{
-					getsym();
-				}
-				else
-				{
-					error(22); // Missing ')'.
-				}
-			} // if
-			else if(sym == SYM_MINUS) // UMINUS, Expr -> '-' Expr
-			{
-				 getsym();
-				 factor(fsys);
-				 gen(OPR, 0, OPR_NEG);
-			} // if
-			else if (sym == SYM_LOGIC_NOT) // LOGIC_NOT, Expr -> '!' Expr
-			{
-				getsym();
-				factor(fsys);
-				gen(OPR, 0, OPR_LOGIC_NOT);
-			} // if
-			else if (sym == SYM_BIT_NOT) // BIT_NOT, Expr -> '~' Expr
-			{
-				getsym();
-				factor(fsys);
-				gen(OPR, 0, OPR_BIT_NOT);
-			} // if
-			set0 = createset(SYM_LPAREN, SYM_NULL);
-			test(fsys, set0, 23);
-			destroyset(set0);
+					mask* mk;
+					case ID_CONSTANT:
+						gen(LIT, 0, table[i].value);
+						getsym();
+						break;
+					case ID_VARIABLE:
+						mk = (mask*) &table[i];
+						gen(LOD, level - mk->level, mk->address);
+						getsym();
+						break;
+					case ID_ARRAY:
+						mk = (mask*) &table[i];
+						getsym();
+						array_index(fsys, i);
+						gen(ALOD, level - mk->level, mk->address);
+						break;
+					case ID_PROCEDURE:
+						proc_call(fsys, i);
+						break;
+				} // switch
+			} // else
 		} // if
-	} // else
+		else if (sym == SYM_NUMBER)
+		{
+			if (num > MAXADDRESS)
+			{
+				error(25); // The number is too great.
+				num = 0;
+			}
+			gen(LIT, 0, num);
+			getsym();
+		} // if
+		else if (sym == SYM_LPAREN)
+		{
+			getsym();
+			set0 = createset(SYM_RPAREN, SYM_NULL);
+			set = uniteset(set0, fsys);
+			expression(set, truelist, falselist);
+			destroyset(set);
+			destroyset(set0);
+			if (sym == SYM_RPAREN)
+			{
+				getsym();
+			}
+			else
+			{
+				error(22); // Missing ')'.
+			}
+		} // if
+		else if(sym == SYM_MINUS) // UMINUS, Expr -> '-' Expr
+		{
+			 getsym();
+			 factor(fsys, truelist, falselist);
+			 logic2num(truelist, falselist);
+			 gen(OPR, 0, OPR_NEG);
+		} // if
+		else if (sym == SYM_LOGIC_NOT) // LOGIC_NOT, Expr -> '!' Expr
+		{
+			sub_truelist = createlist();
+			sub_falselist = createlist();
+			getsym();
+			factor(fsys, sub_truelist, sub_falselist);
+			num2logic(sub_truelist, sub_falselist);
+			unitelist(truelist, sub_falselist);
+			unitelist(falselist, sub_truelist);
+			destroylist(sub_truelist);
+			destroylist(sub_falselist);
+			//gen(OPR, 0, OPR_LOGIC_NOT);
+		} // if
+		else if (sym == SYM_BIT_NOT) // BIT_NOT, Expr -> '~' Expr
+		{
+			getsym();
+			factor(fsys, truelist, falselist);
+			logic2num(truelist, falselist);
+			gen(OPR, 0, OPR_BIT_NOT);
+		} // if
+		set0 = createset(SYM_LPAREN, SYM_NULL);
+		test(fsys, set0, 23);
+		destroyset(set0);
+	} // if
 } // factor
 
 //////////////////////////////////////////////////////////////////////
-void term(symset fsys)
+void term(symset fsys, codelist truelist, codelist falselist)
 {
 	int mulop;
 	symset set, set0;
 
 	set0 = createset(SYM_TIMES, SYM_SLASH, SYM_MOD, SYM_NULL);
 	set = uniteset(fsys, set0);
-	factor(set);
+	factor(set, truelist, falselist);
+	if(sym == SYM_TIMES || sym == SYM_SLASH || sym == SYM_MOD)
+		logic2num(truelist, falselist);
 	while (sym == SYM_TIMES || sym == SYM_SLASH || sym == SYM_MOD)
 	{
 		mulop = sym;
 		getsym();
-		factor(set);
+		factor(set, truelist, falselist);
+		logic2num(truelist, falselist);
 		if (mulop == SYM_TIMES)
 		{
 			gen(OPR, 0, OPR_MUL);
@@ -703,7 +767,7 @@ void term(symset fsys)
 } // term
 
 //////////////////////////////////////////////////////////////////////
-void polyn(symset fsys)
+void polyn(symset fsys, codelist truelist, codelist falselist)
 {
 	int addop;
 	symset set, set0;
@@ -711,12 +775,15 @@ void polyn(symset fsys)
 	set0 = createset(SYM_PLUS, SYM_MINUS, SYM_NULL);
 	set = uniteset(fsys, set0);
 
-	term(set);
+	term(set, truelist, falselist);
+	if(sym == SYM_PLUS || sym == SYM_MINUS)
+		logic2num(truelist, falselist);
 	while (sym == SYM_PLUS || sym == SYM_MINUS)
 	{
 		addop = sym;
 		getsym();
-		term(set);
+		term(set, truelist, falselist);
+		logic2num(truelist, falselist);
 		if (addop == SYM_PLUS)
 		{
 			gen(OPR, 0, OPR_ADD);
@@ -732,7 +799,7 @@ void polyn(symset fsys)
 } // polyn
 
 //////////////////////////////////////////////////////////////////////
-void rel_expr(symset fsys)
+void rel_expr(symset fsys, codelist truelist, codelist falselist)
 {
 	int relop;
 	symset set;
@@ -740,38 +807,70 @@ void rel_expr(symset fsys)
 	if (sym == SYM_ODD)
 	{
 		getsym();
-		polyn(fsys);
-		gen(OPR, 0, OPR_ODD);
+		polyn(fsys, truelist, falselist);
+		logic2num(truelist, falselist);
+		//gen(OPR, 0, OPR_ODD);
+		insertlist(truelist, cx);
+		gen(JOD, 0, 0);
+		insertlist(falselist, cx);
+		gen(JMP, 0, 0);
 	}
 	else
 	{
 		set = uniteset(relset, fsys);
-		polyn(set);
+		polyn(set, truelist, falselist);
 		destroyset(set);
+		if(inset(sym, relset))
+			logic2num(truelist, falselist);
 		if (inset(sym, relset))
 		{
 			relop = sym;
 			getsym();
-			polyn(fsys);
+			polyn(fsys, truelist, falselist);
+			logic2num(truelist, falselist);
 			switch (relop)
 			{
 			case SYM_EQU:
-				gen(OPR, 0, OPR_EQU);
+				//gen(OPR, 0, OPR_EQU);
+				insertlist(truelist, cx);
+				gen(JE, 0, 0);
+				insertlist(falselist, cx);
+				gen(JMP, 0, 0);
 				break;
 			case SYM_NEQ:
-				gen(OPR, 0, OPR_NEQ);
+				//gen(OPR, 0, OPR_NEQ);
+				insertlist(truelist, cx);
+				gen(JNE, 0, 0);
+				insertlist(falselist, cx);
+				gen(JMP, 0, 0);
 				break;
 			case SYM_LES:
-				gen(OPR, 0, OPR_LES);
+				//gen(OPR, 0, OPR_LES);
+				insertlist(truelist, cx);
+				gen(JL, 0, 0);
+				insertlist(falselist, cx);
+				gen(JMP, 0, 0);
 				break;
 			case SYM_GEQ:
-				gen(OPR, 0, OPR_GEQ);
+				//gen(OPR, 0, OPR_GEQ);
+				insertlist(truelist, cx);
+				gen(JGE, 0, 0);
+				insertlist(falselist, cx);
+				gen(JMP, 0, 0);
 				break;
 			case SYM_GTR:
-				gen(OPR, 0, OPR_GTR);
+				//gen(OPR, 0, OPR_GTR);
+				insertlist(truelist, cx);
+				gen(JG, 0, 0);
+				insertlist(falselist, cx);
+				gen(JMP, 0, 0);
 				break;
 			case SYM_LEQ:
-				gen(OPR, 0, OPR_LEQ);
+				//gen(OPR, 0, OPR_LEQ);
+				insertlist(truelist, cx);
+				gen(JLE, 0, 0);
+				insertlist(falselist, cx);
+				gen(JMP, 0, 0);
 				break;
 			} // switch
 		} // else
@@ -779,16 +878,19 @@ void rel_expr(symset fsys)
 } // rel_expr
 
 //////////////////////////////////////////////////////////////////////
-void bit_and_expr(symset fsys)
+void bit_and_expr(symset fsys, codelist truelist, codelist falselist)
 {
 	symset set, set0;
 	set0 = createset(SYM_BIT_AND, SYM_NULL);
 	set = uniteset(fsys, set0);
-	rel_expr(set);
+	rel_expr(set, truelist, falselist);
+	if(sym == SYM_BIT_AND)
+		logic2num(truelist, falselist);
 	while(sym == SYM_BIT_AND)
 	{
 		getsym();
-		rel_expr(set);
+		rel_expr(set, truelist, falselist);
+		logic2num(truelist, falselist);
 		gen(OPR, 0, OPR_BIT_AND);
 	} // while
 	destroyset(set);
@@ -796,16 +898,19 @@ void bit_and_expr(symset fsys)
 } // bit_and_expr
 
 //////////////////////////////////////////////////////////////////////
-void bit_xor_expr(symset fsys)
+void bit_xor_expr(symset fsys, codelist truelist, codelist falselist)
 {
 	symset set, set0;
 	set0 = createset(SYM_BIT_XOR, SYM_NULL);
 	set = uniteset(fsys, set0);
-	bit_and_expr(set);
+	bit_and_expr(set, truelist, falselist);
+	if(sym == SYM_BIT_XOR)
+		logic2num(truelist, falselist);
 	while(sym == SYM_BIT_XOR)
 	{
 		getsym();
-		bit_and_expr(set);
+		bit_and_expr(set, truelist, falselist);
+		logic2num(truelist, falselist);
 		gen(OPR, 0, OPR_BIT_XOR);
 	} // while
 	destroyset(set);
@@ -813,16 +918,19 @@ void bit_xor_expr(symset fsys)
 } // bit_xor_expr
 
 //////////////////////////////////////////////////////////////////////
-void bit_or_expr(symset fsys)
+void bit_or_expr(symset fsys, codelist truelist, codelist falselist)
 {
 	symset set, set0;
 	set0 = createset(SYM_BIT_OR, SYM_NULL);
 	set = uniteset(fsys, set0);
-	bit_xor_expr(set);
+	bit_xor_expr(set, truelist, falselist);
+	if(sym == SYM_BIT_OR)
+		logic2num(truelist, falselist);
 	while(sym == SYM_BIT_OR)
 	{
 		getsym();
-		bit_xor_expr(set);
+		bit_xor_expr(set, truelist, falselist);
+		logic2num(truelist, falselist);
 		gen(OPR, 0, OPR_BIT_OR);
 	} // while
 	destroyset(set);
@@ -830,122 +938,147 @@ void bit_or_expr(symset fsys)
 } // bit_or_expr
 
 //////////////////////////////////////////////////////////////////////
-void logic_and_expr(symset fsys)
+void logic_and_expr(symset fsys, codelist truelist, codelist falselist)
 {
+	codelist bit_truelist, bit_falselist;
 	symset set, set0;
+	bit_truelist = createlist();
+	bit_falselist = createlist();
 	set0 = createset(SYM_LOGIC_AND, SYM_NULL);
 	set = uniteset(fsys, set0);
-	bit_or_expr(set);
+	bit_or_expr(set, bit_truelist, bit_falselist);
+	if(sym == SYM_LOGIC_AND)
+		num2logic(bit_truelist, bit_falselist);
 	while(sym == SYM_LOGIC_AND)
 	{
+		unitelist(falselist, bit_falselist);
+		backpatch(bit_truelist, cx);
 		getsym();
-		bit_or_expr(set);
-		gen(OPR, 0, OPR_LOGIC_AND);
+		bit_or_expr(set, bit_truelist, bit_falselist);
+		num2logic(bit_truelist, bit_falselist);
+		//gen(OPR, 0, OPR_LOGIC_AND);
 	} // while
+	unitelist(falselist, bit_falselist);
+	unitelist(truelist, bit_truelist);
+	destroylist(bit_truelist);
+	destroylist(bit_falselist);
 	destroyset(set);
 	destroyset(set0);
 } // logic_and_expr
 
 //////////////////////////////////////////////////////////////////////
-void logic_or_expr(symset fsys)
+void logic_or_expr(symset fsys, codelist truelist, codelist falselist)
 {
+	codelist and_truelist,and_falselist;
 	symset set, set0;
+	and_truelist = createlist();
+	and_falselist = createlist();
 	set0 = createset(SYM_LOGIC_OR, SYM_NULL);
 	set = uniteset(fsys, set0);
-	logic_and_expr(set);
+	logic_and_expr(set, and_truelist, and_falselist);
+	if(sym == SYM_LOGIC_OR)
+		num2logic(and_truelist, and_falselist);
 	while(sym == SYM_LOGIC_OR)
 	{
 		getsym();
-		logic_and_expr(set);
-		gen(OPR, 0, OPR_LOGIC_OR);
+		unitelist(truelist, and_truelist);
+		backpatch(and_falselist, cx);
+		logic_and_expr(set, and_truelist, and_falselist);
+		num2logic(and_truelist, and_falselist);
+		//gen(OPR, 0, OPR_LOGIC_OR);
 	} // while
+	unitelist(truelist, and_truelist);
+	unitelist(falselist, and_falselist);
+	destroylist(and_truelist);
+	destroylist(and_falselist);
 	destroyset(set);
 	destroyset(set0);
 } // logic_or_expr
 
 //////////////////////////////////////////////////////////////////////
-void condition_assign_expr(symset fsys)
+void condition_assign_expr(symset fsys, codelist truelist, codelist falselist)
 {
-	// Todo
-	logic_or_expr(fsys);
+	codelist or_truelist, or_falselist;
+	or_truelist = createlist();
+	or_falselist = createlist();
+	logic_or_expr(fsys, or_truelist, or_falselist);
+	if(sym == SYM_QUES)
+	{
+		// Todo
+	}
+	unitelist(truelist, or_truelist);
+	unitelist(falselist, or_falselist);
+	destroylist(or_truelist);
+	destroylist(or_falselist);
 } // condition_assign_expr
 
 //////////////////////////////////////////////////////////////////////
-void assign_expr(symset fsys)
+void assign_expr(symset fsys, codelist truelist, codelist falselist)
 {
-	void expression(symset fsys);
-	int i;
+	void expression(symset fsys, codelist truelist, codelist falselist);
+	int cx0, f, a, l;
+	//int i;
 	symset set0, set;
+	codelist sub_truelist, sub_falselist;
 
-	if(sym == SYM_IDENTIFIER)
+	sub_truelist = createlist();
+	sub_falselist = createlist();
+	set0 = createset(SYM_ASSIGN, SYM_NULL);
+	set = uniteset(fsys, set0);
+	condition_assign_expr(set, sub_truelist, sub_falselist);
+	cx0 = cx - 1;
+	f = code[cx0].f;
+	l = code[cx0].l;
+	a = code[cx0].a;
+	if((f == LOD || f == ALOD) && sym == SYM_ASSIGN)
+	// left-value check for assign_expr
 	{
-		mask* mk;
-		if (! (i = position(id)))
-		{
-			error(11); // Undeclared identifier.
-			getsym();
-			set0 = createset(SYM_SEMICOLON, SYM_NULL);
-			set = uniteset(statbegsys, set0);
-			test(statbegsys, set, 24);
-			destroyset(set);
-			destroyset(set0);
-		} // if
-		else if(table[i].kind == ID_VARIABLE || table[i].kind == ID_ARRAY)
-		{
-			getsym();
-			if(table[i].kind == ID_ARRAY)
-			{
-				array_index(fsys, i);
-			}
-			mk = (mask*) &table[i];
-			if (sym == SYM_ASSIGN)
-			{
-				getsym();
-				set0 = createset(SYM_ASSIGN, SYM_NULL);
-				set = uniteset(fsys, set0);
-				expression(set);
-				destroyset(set);
-				destroyset(set0);
-				if (i)
-				{
-					if(table[i].kind == ID_VARIABLE)
-						gen(STO, level - mk->level, mk->address);
-					else
-						gen(ASTO, level - mk->level, mk->address);
-				}
-			} // if
-			else
-			{
-				if (i)
-				{
-					if(table[i].kind == ID_VARIABLE)
-						gen(LOD, level - mk->level, mk->address);
-					else
-						gen(ALOD, level - mk->level, mk->address);
-				}
-				id_read_ahead = 1;		// There is a id processed ahead.
-				condition_assign_expr(fsys);
-			} // else
-		} // else if
+		cx --;
+		getsym();
+		assign_expr(fsys, NULL, NULL);
+		if(f == LOD)
+			gen(STO, l, a);
 		else
-		{
-			condition_assign_expr(fsys);
-		} // else
-	} // if
+			gen(ASTO, l, a);
+	}
+	if(truelist != NULL)
+	{
+		unitelist(truelist, sub_truelist);
+		unitelist(falselist, sub_falselist);
+	}
 	else
 	{
-		condition_assign_expr(fsys);
+		logic2num(sub_truelist, sub_falselist);
 	}
+	destroyset(set);
+	destroyset(set0);
+	destroylist(sub_truelist);
+	destroylist(sub_falselist);
 } // assign_expr
 
 //////////////////////////////////////////////////////////////////////
-void expression(symset fsys)
+void expression(symset fsys, codelist truelist, codelist falselist)
 {
-	assign_expr(fsys);
+	codelist ass_truelist, ass_falselist;
+	ass_truelist = createlist();
+	ass_falselist = createlist();
+	assign_expr(fsys, ass_truelist, ass_falselist);
+	if(truelist == NULL)
+	{
+		logic2num(ass_truelist, ass_falselist);
+	}
+	else
+	{
+		//num2logic(ass_truelist, ass_falselist);
+		unitelist(truelist, ass_truelist);
+		unitelist(falselist, ass_falselist);
+	}
+	destroylist(ass_truelist);
+	destroylist(ass_falselist);
 } // expression
 
 //////////////////////////////////////////////////////////////////////
-void condition(symset fsys)
+void condition(symset fsys, codelist truelist, codelist falselist)
 {
 	symset set, set0;
 	if (sym != SYM_LPAREN)
@@ -957,7 +1090,8 @@ void condition(symset fsys)
 		getsym();
 		set0 = createset(SYM_RPAREN, SYM_NULL);
 		set = uniteset(fsys, set0);
-		expression(set);
+		expression(set, truelist, falselist);
+		num2logic(truelist, falselist);
 		destroyset(set);
 		destroyset(set0);
 		if (sym != SYM_RPAREN)
@@ -972,13 +1106,14 @@ void condition(symset fsys)
 void statement(symset fsys)
 {
 	void compound_statement(symset fsys);
-	int cx1, cx2;
+	int cx0;
 	int count;
 	symset set1, set;
+	codelist truelist, falselist;
 
 	if (sym == SYM_IDENTIFIER)
 	{ // assign statement
-		assign_expr(fsys);
+		assign_expr(fsys, NULL, NULL);
 		gen(INT, 0, -1);		// recycle stack room storing assign value
 		if(sym == SYM_SEMICOLON)
 			getsym();
@@ -999,7 +1134,7 @@ void statement(symset fsys)
 	{ // return statement
 		getsym();
 		if(sym != SYM_SEMICOLON)
-			expression(fsys);		// return value
+			expression(fsys, NULL, NULL);		// return value
 		else
 			gen(LIT, 0, 0);		// return 0 in default
 		mask *mk;
@@ -1019,31 +1154,54 @@ void statement(symset fsys)
 	}
 	else if (sym == SYM_IF)
 	{ // if statement
+		truelist = createlist();
+		falselist = createlist();
 		getsym();
 		set1 = createset(SYM_DO, SYM_NULL);
 		set = uniteset(set1, fsys);
-		condition(set);
+		condition(set, truelist, falselist);
 		destroyset(set1);
 		destroyset(set);
-		cx1 = cx;
-		gen(JPC, 0, 0);
+		//cx1 = cx;
+		//gen(JPC, 0, 0);
+		backpatch(truelist, cx);
 		compound_statement(fsys);
-		code[cx1].a = cx;
+		if(sym == SYM_ELSE)
+		{
+			cx0 = cx;
+			gen(JMP, 0, 0);
+			backpatch(falselist, cx);
+			compound_statement(fsys);
+			code[cx0].a = cx;
+		}
+		else
+		{
+			backpatch(falselist, cx);
+		}
+		//code[cx1].a = cx;
+		destroylist(truelist);
+		destroylist(falselist);
 	}
 	else if (sym == SYM_WHILE)
 	{ // while statement
-		cx1 = cx;
+		truelist = createlist();
+		falselist = createlist();
+		cx0 = cx;
 		getsym();
 		set1 = createset(SYM_DO, SYM_NULL);
 		set = uniteset(set1, fsys);
-		condition(set);
+		condition(set, truelist, falselist);
 		destroyset(set1);
 		destroyset(set);
-		cx2 = cx;
-		gen(JPC, 0, 0);
+		//cx2 = cx;
+		//gen(JPC, 0, 0);
+		backpatch(truelist, cx);
 		compound_statement(fsys);
-		gen(JMP, 0, cx1);
-		code[cx2].a = cx;
+		gen(JMP, 0, cx0);
+		//code[cx2].a = cx;
+		backpatch(falselist, cx);
+		destroylist(truelist);
+		destroylist(falselist);
 	}
 	else if (sym == SYM_BEGIN)
 	{ // compound_statement
@@ -1397,6 +1555,51 @@ void interpret()
 				pc = i.a;
 			top--;
 			break;
+		case JZ:
+			if(stack[top] == 0)
+				pc = i.a;
+			top --;
+			break;
+		case JNZ:
+			if(stack[top] != 0)
+				pc = i.a;
+			top --;
+			break;
+		case JOD:
+			if(stack[top] % 2 == 1)
+				pc = i.a;
+			top --;
+			break;
+		case JE:
+			if(stack[top - 1] == stack[top])
+				pc = i.a;
+			top -= 2;
+			break;
+		case JNE:
+			if(stack[top - 1] != stack[top])
+				pc = i.a;
+			top -= 2;
+			break;
+		case JG:
+			if(stack[top - 1] > stack[top])
+				pc = i.a;
+			top -= 2;
+			break;
+		case JGE:
+			if(stack[top - 1] >= stack[top])
+				pc = i.a;
+			top -= 2;
+			break;
+		case JL:
+			if(stack[top - 1] < stack[top])
+				pc = i.a;
+			top -= 2;
+			break;
+		case JLE:
+			if(stack[top - 1] <= stack[top])
+				pc = i.a;
+			top -= 2;
+			break;
 		case OUT:
 			for(j = top - i.a + 1; j <= top; j ++)
 				printf("%d\t", stack[j]);
@@ -1451,7 +1654,7 @@ int main (int argc, char **argv)
 		tx = 0;
 		ax = 0;
 		px = 0;
-		id_read_ahead = 0;
+		//id_read_ahead = 0;
 		curr_proc = 0;
 
 		getsym();

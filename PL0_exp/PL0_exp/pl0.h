@@ -3,7 +3,7 @@
 #define NRW        16     // number of reserved words
 #define TXMAX      500    // length of identifier table
 #define MAXNUMLEN  14     // maximum number of digits in numbers
-#define NSYM       17     // maximum number of symbols in array ssym and csym
+#define NSYM       19     // maximum number of symbols in array ssym and csym
 #define MAXIDLEN   10     // length of identifiers
 
 #define MAXADDRESS 32767  // maximum address
@@ -51,6 +51,8 @@ enum symtype
 	SYM_RINDEX,
 	SYM_COMMA,
 	SYM_SEMICOLON,
+	SYM_QUES,
+	SYM_COLON,
 	SYM_PERIOD,
 	SYM_ASSIGN,
   	SYM_BEGIN,
@@ -79,7 +81,7 @@ enum idtype
 
 enum opcode
 {
-	LIT, OPR, LOD, STO, CAL, INT, JMP, JPC, RET, OUT, ALOD, ASTO
+	LIT, OPR, LOD, STO, CAL, INT, JMP, JPC, JZ, JNZ, JE, JNE, JG, JGE, JL, JLE, JOD, RET, OUT, ALOD, ASTO
 };
 
 enum oprcode
@@ -134,7 +136,7 @@ char* err_msg[] =
 /* 28 */    "'}' expected.",
 /* 29 */    "'}' or '$' expected.",
 /* 30 */    "Argc can't match.",
-/* 31 */    "Number expected.",
+/* 31 */    "Number or const expected.",
 /* 32 */    "There are too many levels.",
 /* 33 */	"']' expected.",
 /* 34 */ 	"The symbol can't be the type of a argument.",
@@ -180,29 +182,18 @@ int ssym[NSYM + 1] =
 {
 	SYM_NULL, SYM_PLUS, SYM_MINUS, SYM_TIMES, SYM_SLASH, SYM_MOD, SYM_BIT_NOT, SYM_BIT_XOR,
 	SYM_LPAREN, SYM_RPAREN, SYM_LINDEX, SYM_RINDEX, SYM_EQU, SYM_COMMA, SYM_PERIOD, SYM_SEMICOLON,
-	SYM_BEGIN, SYM_END
+	SYM_QUES, SYM_COLON, SYM_BEGIN, SYM_END
 };
 
 char csym[NSYM + 1] =
 {
-	' ', '+', '-', '*', '/', '%', '~', '^', '(', ')', '[', ']', '=', ',', '$', ';','{', '}'
+	' ', '+', '-', '*', '/', '%', '~', '^', '(', ')', '[', ']', '=', ',', '$', ';','?', ':', '{', '}'
 };
 
-#define MAXINS   12
+#define MAXINS   21
 char* mnemonic[MAXINS] =
 {
-	"LIT", "OPR", "LOD", "STO", "CAL", "INT", "JMP", "JPC", "RET", "OUT", "ALOD", "ASTO"
-};
-
-#define MAXOPR 21
-char* oprname[MAXOPR] =
-{
-	"RET", "NEG", "ADD", "MIN",
-	"MUL", "DIV", "MOD", "ODD",
-	"EQU", "NEQ", "LES", "LEQ",
-	"GTR", "GEQ", "BIT_NOT",
-	"LOGIC_NOT", "LOGIC_AND", "LOGIC_OR",
-	"BIT_AND", "BIT_XOR", "BIT_OR"
+	"LIT", "OPR", "LOD", "STO", "CAL", "INT", "JMP", "JPC", "JZ", "JNZ", "JE", "JNE", "JG", "JGE", "JL", "JLE", "JOD", "RET", "OUT", "ALOD", "ASTO"
 };
 
 typedef struct

@@ -111,4 +111,62 @@ int inset(int elem, symset s)
 		return 0;
 } // inset
 
+codelist createlist()
+{
+	codelist l;
+	l = (snode*)malloc(sizeof(snode));
+	l->next = NULL;
+	return l;
+} // createlist
+
+void destroylist(codelist l)
+{
+	destroyset(l);
+} // destroylist
+
+void insertlist(codelist l, int elem)
+{
+	setinsert(l, elem);
+} // insertlist
+
+void unitelist(codelist dst, codelist src)
+{
+	snode *s1, *s2;
+	s1 = dst;
+	s2 = src->next;
+	while(s2 != NULL)
+	{
+		src->next = s2->next;
+		while(s1->next != NULL && s1->next->elem < s2->elem)
+			s1 = s1->next;
+		if(s1->next != NULL)
+		{
+			if(s1->next->elem > s2->elem)
+			{
+				s2->next = s1->next;
+				s1->next = s2;
+			}
+			else
+			{
+				s2->elem = -1000000;
+				free(s2);
+			}
+		}
+		else
+		{
+			s2->next = s1->next;
+			s1->next = s2;
+		}
+		s2 = src->next;
+	}
+} // unitelist
+
+int isempty(codelist l)
+{
+	if(l->next == NULL)
+		return 1;
+	else
+		return 0;
+} // isempty
+
 // EOF set.c
