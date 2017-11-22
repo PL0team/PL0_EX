@@ -3,7 +3,7 @@
 #define NRW        16     // number of reserved words
 #define TXMAX      500    // length of identifier table
 #define MAXNUMLEN  14     // maximum number of digits in numbers
-#define NSYM       19     // maximum number of symbols in array ssym and csym
+#define NSYM       13     // maximum number of symbols in array ssym and csym
 #define MAXIDLEN   10     // length of identifiers
 
 #define MAXADDRESS 32767  // maximum address
@@ -26,6 +26,8 @@ enum symtype
 	SYM_NULL,
 	SYM_IDENTIFIER,
 	SYM_NUMBER,
+	SYM_INC,
+	SYM_DEC,
 	SYM_PLUS,
 	SYM_MINUS,
 	SYM_TIMES,
@@ -35,6 +37,8 @@ enum symtype
 	SYM_BIT_OR,
 	SYM_BIT_NOT,
 	SYM_BIT_XOR,
+	SYM_SHL,
+	SYM_SHR,
 	SYM_LOGIC_AND,
 	SYM_LOGIC_OR,
 	SYM_LOGIC_NOT,
@@ -55,6 +59,16 @@ enum symtype
 	SYM_COLON,
 	SYM_PERIOD,
 	SYM_ASSIGN,
+	SYM_PLUS_ASSIGN,
+	SYM_MINUS_ASSIGN,
+	SYM_TIMES_ASSIGN,
+	SYM_SLASH_ASSIGN,
+	SYM_MOD_ASSIGN,
+	SYM_BIT_AND_ASSIGN,
+	SYM_BIT_OR_ASSIGN,
+	SYM_BIT_XOR_ASSIGN,
+	SYM_SHL_ASSIGN,
+	SYM_SHR_ASSIGN,
   	SYM_BEGIN,
 	SYM_END,
 	SYM_IF,
@@ -89,7 +103,7 @@ enum oprcode
 	OPR_RET, OPR_NEG, OPR_ADD, OPR_MIN,
 	OPR_MUL, OPR_DIV, OPR_MOD, OPR_ODD,
 	OPR_EQU, OPR_NEQ, OPR_LES, OPR_LEQ,
-	OPR_GTR, OPR_GEQ, OPR_BIT_NOT,
+	OPR_GTR, OPR_GEQ, OPR_SHL, OPR_SHR, OPR_BIT_NOT,
 	OPR_LOGIC_NOT, OPR_LOGIC_AND, OPR_LOGIC_OR,
 	OPR_BIT_AND, OPR_BIT_XOR, OPR_BIT_OR
 };
@@ -142,7 +156,10 @@ char* err_msg[] =
 /* 34 */ 	"The symbol can't be the type of a argument.",
 /* 35 */	"'[' expected.",
 /* 36 */	"Array dimension can't match.",
-/* 37 */	"':' expected."
+/* 37 */	"':' expected.",
+/* 38 */	"Var expected.",
+/* 39 */	"Incorrect use of \"continue\".",
+/* 40 */	"Incorrect use of \"break\"."
 };
 
 //////////////////////////////////////////////////////////////////////
@@ -181,14 +198,14 @@ int wsym[NRW + 1] =
 
 int ssym[NSYM + 1] =
 {
-	SYM_NULL, SYM_PLUS, SYM_MINUS, SYM_TIMES, SYM_SLASH, SYM_MOD, SYM_BIT_NOT, SYM_BIT_XOR,
+	SYM_NULL, SYM_BIT_NOT,
 	SYM_LPAREN, SYM_RPAREN, SYM_LINDEX, SYM_RINDEX, SYM_EQU, SYM_COMMA, SYM_PERIOD, SYM_SEMICOLON,
 	SYM_QUES, SYM_COLON, SYM_BEGIN, SYM_END
 };
 
 char csym[NSYM + 1] =
 {
-	' ', '+', '-', '*', '/', '%', '~', '^', '(', ')', '[', ']', '=', ',', '$', ';','?', ':', '{', '}'
+	' ', '~', '(', ')', '[', ']', '=', ',', '$', ';','?', ':', '{', '}'
 };
 
 #define MAXINS   21
