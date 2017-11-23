@@ -19,8 +19,10 @@ typedef symset codelist;
 codelist createlist();
 void destroylist(codelist l);
 void insertlist(codelist l, int elem);
+int deletelist(codelist l, int elem);
 void unitelist(codelist dst, codelist src);
 int isempty(codelist l);
+int inlist(int elem, codelist l);
 
 #endif
 // EOF set.h

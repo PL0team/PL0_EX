@@ -95,7 +95,7 @@ enum idtype
 
 enum opcode
 {
-	LIT, OPR, LOD, STO, CAL, INT, JMP, JPC, JZ, JNZ, JE, JNE, JG, JGE, JL, JLE, JOD, RET, OUT, ALOD, ASTO
+	LIT, OPR, LEA, LOD, STO, CAL, INT, JMP, JPC, JZ, JNZ, JE, JNE, JG, JGE, JL, JLE, JOD, RET, OUT, ALOD, ASTO
 };
 
 enum oprcode
@@ -208,10 +208,10 @@ char csym[NSYM + 1] =
 	' ', '~', '(', ')', '[', ']', '=', ',', '$', ';','?', ':', '{', '}'
 };
 
-#define MAXINS   21
+#define MAXINS   22
 char* mnemonic[MAXINS] =
 {
-	"LIT", "OPR", "LOD", "STO", "CAL", "INT", "JMP", "JPC", "JZ", "JNZ", "JE", "JNE", "JG", "JGE", "JL", "JLE", "JOD", "RET", "OUT", "ALOD", "ASTO"
+	"LIT", "OPR", "LEA", "LOD", "STO", "CAL", "INT", "JMP", "JPC", "JZ", "JNZ", "JE", "JNE", "JG", "JGE", "JL", "JLE", "JOD", "RET", "OUT", "ALOD", "ASTO"
 };
 
 typedef struct

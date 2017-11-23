@@ -129,6 +129,25 @@ void insertlist(codelist l, int elem)
 	setinsert(l, elem);
 } // insertlist
 
+int deletelist(codelist l, int elem)
+{
+	snode *p, *q;
+	p = l;
+	while(p->next != NULL && p->next->elem < elem)
+		p = p->next;
+	if(p->next == NULL || p->next->elem > elem)
+		return 0;
+	else
+	{
+		q = p->next;
+		p->next = q->next;
+		q->elem = -1000000;
+		free(q);
+		return 1;
+
+	}
+} // deletelist
+
 void unitelist(codelist dst, codelist src)
 {
 	snode *s1, *s2;
@@ -168,5 +187,10 @@ int isempty(codelist l)
 	else
 		return 0;
 } // isempty
+
+int inlist(int elem, codelist l)
+{
+	return inset(elem, l);
+} // inlist
 
 // EOF set.c

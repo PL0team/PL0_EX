@@ -478,6 +478,43 @@ void num2logic(codelist truelist, codelist falselist)
 } // num2logic
 
 //////////////////////////////////////////////////////////////////////
+// by default, conditional jump code looks like:JX true/JMP false
+// After reverse, it will become: JNX false(by default it will goto true)
+void conditionreverse(codelist truelist, codelist falselist)
+{
+	symset conjmpset;
+	conjmpset = createset(JZ, JNZ, JE, JNE, JG, JGE, JL, JLE, SYM_NULL);
+	if(code[cx - 1].f == JMP && inlist(cx - 1, truelist))
+	{
+		deletelist(truelist, cx - 1);
+		cx --;
+	}
+	if(code[cx - 1].f == JMP && inlist(cx - 1, falselist) && inset(code[cx -2].f, conjmpset) && inlist(cx - 2, truelist))
+	{
+		if(code[cx- 2].f == JZ)
+			code[cx - 2].f = JNZ;
+		else if(code[cx- 2].f == JNZ)
+			code[cx - 2].f = JZ;
+		else if(code[cx- 2].f == JE)
+			code[cx - 2].f = JNE;
+		else if(code[cx- 2].f == JNE)
+			code[cx - 2].f = JE;
+		else if(code[cx- 2].f == JG)
+			code[cx - 2].f = JLE;
+		else if(code[cx- 2].f == JLE)
+			code[cx - 2].f = JG;
+		else if(code[cx- 2].f == JL)
+			code[cx - 2].f = JGE;
+		else if(code[cx- 2].f == JGE)
+			code[cx - 2].f = JL;
+		deletelist(falselist, cx - 1);
+		insertlist(falselist,cx - 2);
+		cx --;
+	}
+	destroyset(conjmpset);
+} // conditionreverse
+
+//////////////////////////////////////////////////////////////////////
 void listcode(int from, int to)
 {
 	int i;
@@ -801,9 +838,11 @@ void factor(symset fsys, codelist truelist, codelist falselist)
 						break;
 					case ID_ARRAY:
 						mk = (mask*) &table[i];
+						gen(LEA, level - mk->level, mk->address);
 						getsym();
 						array_index(fsys, i);
-						gen(ALOD, level - mk->level, mk->address);
+						gen(OPR, 0, OPR_ADD);
+						gen(ALOD, 0, 0);
 						break;
 					case ID_PROCEDURE:
 						proc_call(fsys, i);
@@ -1153,10 +1192,16 @@ void logic_and_expr(symset fsys, codelist truelist, codelist falselist)
 		num2logic(bit_truelist, bit_falselist);
 	while(sym == SYM_LOGIC_AND)
 	{
+		// Unnecessary jmp delete
+		if(code[cx -1].f == JMP && inlist(cx - 1, bit_truelist))
+		{
+			deletelist(bit_truelist, cx - 1);
+			cx --;
+		}
+		// condition reverse
+		conditionreverse(bit_truelist, bit_falselist);
 		unitelist(falselist, bit_falselist);
 		backpatch(bit_truelist, cx);
-		if(code[cx - 1].f == JMP && code[cx - 1].a == 1)
-			cx --;
 		getsym();
 		bit_or_expr(set, bit_truelist, bit_falselist);
 		num2logic(bit_truelist, bit_falselist);
@@ -1186,9 +1231,12 @@ void logic_or_expr(symset fsys, codelist truelist, codelist falselist)
 	{
 		getsym();
 		unitelist(truelist, and_truelist);
-		backpatch(and_falselist, cx);
-		if(code[cx - 1].f == JMP && code[cx - 1].a == 1)
+		if(code[cx - 1].f == JMP && inlist(cx - 1, and_falselist))
+		{
+			deletelist(and_falselist, cx - 1);
 			cx --;
+		}
+		backpatch(and_falselist, cx);
 		logic_and_expr(set, and_truelist, and_falselist);
 		num2logic(and_truelist, and_falselist);
 		//gen(OPR, 0, OPR_LOGIC_OR);
@@ -1487,6 +1535,7 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 		if_nextlist = createlist();
 		getsym();
 		condition(fsys, truelist, falselist);
+		conditionreverse(truelist, falselist);
 		//cx1 = cx;
 		//gen(JPC, 0, 0);
 		backpatch(truelist, cx);
@@ -1498,6 +1547,7 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 			backpatch(falselist, cx);
 			getsym();
 			condition(fsys, truelist, falselist);
+			conditionreverse(truelist, falselist);
 			backpatch(truelist, cx);
 			statement(set, nextlist, looplist);
 			insertlist(if_nextlist, cx);
@@ -1515,9 +1565,13 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 		}
 		else
 		{
-			backpatch(falselist, cx - 1);
-			backpatch(if_nextlist, cx - 1);
-			cx --;
+			if(code[cx - 1].f == JMP && inlist(cx - 1, nextlist))
+			{
+				deletelist(nextlist, cx - 1);
+				cx --;
+			}
+			backpatch(falselist, cx);
+			backpatch(if_nextlist, cx);
 		}
 		//code[cx1].a = cx;
 		destroylist(truelist);
@@ -1534,6 +1588,7 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 		cx0 = cx;
 		getsym();
 		condition(fsys, truelist, falselist);
+		conditionreverse(truelist, falselist);
 		//cx2 = cx;
 		//gen(JPC, 0, 0);
 		backpatch(truelist, cx);
@@ -1575,6 +1630,7 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 				getsym();
 				expression(set2, truelist, falselist);
 				num2logic(truelist, falselist);
+				conditionreverse(truelist, falselist);
 				if(sym == SYM_SEMICOLON)
 				{
 					start = cx;
@@ -1778,7 +1834,7 @@ void block(symset fsys)
 	code[mk->address].a = cx;		// modify procedure entry and JMP code
 	mk->address = cx;
 	cx0 = cx;
-	gen(INT, 0, block_dx);
+	gen(INT, 0, dx);
 	set1 = createset(SYM_SEMICOLON, SYM_END, SYM_NULL);
 	set = uniteset(set1, fsys);
 	multi_statement(set, NULL, NULL);
@@ -1815,7 +1871,7 @@ void interpret()
 	int top;       // top of stack
 	int b;         // program, base, and top-stack register
 	int j;
-	int offset;
+	int addr;
 	instruction i; // instruction register
 
 	printf("Begin executing PL/0 program.\n");
@@ -1950,6 +2006,9 @@ void interpret()
 				break;
 			} // switch
 			break;
+		case LEA:
+			stack[++top] = base(stack, b, i.l) + i.a;
+			break;
 		case LOD:
 			stack[++top] = stack[base(stack, b, i.l) + i.a];
 			break;
@@ -1960,12 +2019,12 @@ void interpret()
 			// top--;
 			break;
 		case ALOD:
-			offset = stack[top];
-			stack[top] = stack[base(stack, b, i.l) + i.a + offset];
+			addr = stack[top];
+			stack[top] = stack[addr];
 			break;
 		case ASTO:
-			offset = stack[top - 1];
-			stack[base(stack, b, i.l) + i.a + offset] = stack[top];
+			addr = stack[top - 1];
+			stack[addr] = stack[top];
 			stack[top - 1] = stack[top];
 			top --;
 			// printf("%d\n", stack[top]);
