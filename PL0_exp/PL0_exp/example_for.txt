@@ -1,26 +1,5 @@
-var i, j, k;
+var i;
 
-procedure test(var i, var j, var k)
-{
-    while(i < 10)
-    {
-        if(odd i)
-            print(i);
-        ++ i;
-    }
-    return j + k;
-}
-
-for(i = 0, j = 0, k = 0; i <= 10; i ++, j += 2)
-{
-    print(i, j);
-    k += i;
-}
-print(k);
-//exit;
-print(test(0, 5, 7));
-//print(1 << 10);
-print();
 for(i = 0; i < 10; i ++)
 {
     if(odd i)

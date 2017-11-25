@@ -1863,6 +1863,17 @@ int base(int stack[], int currentLevel, int levelDiff)
 } // base
 
 //////////////////////////////////////////////////////////////////////
+void overflow(int top)
+{
+	if(top >= STACKSIZE)
+	{
+		fprintf(stderr, "Runtime Error: Stack Overflow.\n");
+		fprintf(stderr, "Program terminated.\n");
+		exit(0);
+	}
+} //overflow
+
+//////////////////////////////////////////////////////////////////////
 // interprets and executes codes.
 void interpret()
 {
@@ -1887,6 +1898,7 @@ void interpret()
 		{
 		case LIT:
 			stack[++top] = i.a;
+			overflow(top);
 			break;
 		case OPR:
 			switch (i.a) // operator
@@ -2008,9 +2020,11 @@ void interpret()
 			break;
 		case LEA:
 			stack[++top] = base(stack, b, i.l) + i.a;
+			overflow(top);
 			break;
 		case LOD:
 			stack[++top] = stack[base(stack, b, i.l) + i.a];
+			overflow(top);
 			break;
 		case STO:
 			stack[base(stack, b, i.l) + i.a] = stack[top];
@@ -2041,6 +2055,7 @@ void interpret()
 			break;
 		case INT:
 			top += i.a;
+			overflow(top);
 			break;
 		case JMP:
 			pc = i.a + pc - 1;
