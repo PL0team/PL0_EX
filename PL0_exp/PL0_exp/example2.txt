@@ -1,9 +1,0 @@
-var i;
-procedure p()
-{
-    i = 2;
-}
-i = 1;
-p();
-print(i);
-$
