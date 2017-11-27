@@ -178,7 +178,7 @@ int  tx = 0;	 // last item num in symbol table, point to entered item
 int  ax = 0;	 // last item num in array table, point to entered item
 int  px = 0;	 // last item num in procedure table, point to entered item
 
-char line[100];
+char line[512];
 
 instruction code[CXMAX];
 
