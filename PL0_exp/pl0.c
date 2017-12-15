@@ -106,8 +106,7 @@ void getsym(void)
 			if (k < MAXIDLEN)
 				a[k++] = ch;
 			getch();
-		}
-		while (isalpha(ch) || isdigit(ch) || (ch == '_'));
+		}while (isalpha(ch) || isdigit(ch) || (ch == '_'));
 		a[k] = 0;
 		strcpy(id, a);
 		word[0] = id;
@@ -940,6 +939,13 @@ void factor(symset fsys, codelist truelist, codelist falselist)
 			logic2num(truelist, falselist);
 			gen(OPR, 0, OPR_BIT_NOT);
 		} // if
+		else if (sym == SYM_RAND)
+		{
+			getsym();
+			factor(fsys, truelist, falselist);
+			logic2num(truelist, falselist);
+			gen(RAND, 0, 0);
+		}
 		set0 = createset(SYM_LPAREN, SYM_NULL);
 		test(fsys, set0, 23);
 		destroyset(set0);
@@ -1463,6 +1469,15 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 		else
 		error(10);			// ';' expected.
 	}
+	// else if(sym == SYM_RAND)
+	// {// rand statement
+	// 	getsym();
+	// 	count = args_list(fsys);
+	// 	if(count != 1) error(41);
+	// 	gen(RAND, 0, count);
+	// 	if(sym == SYM_SEMICOLON) getsym();
+	// 	else error(10);
+	// }
 	else if(sym == SYM_RETURN)
 	{ // return statement
 		mask *mk;
@@ -1883,6 +1898,7 @@ void interpret()
 	int b;         // program, base, and top-stack register
 	int j;
 	int addr;
+	time_t temp; // temp arg
 	instruction i; // instruction register
 
 	printf("Begin executing PL/0 program.\n");
@@ -2121,10 +2137,14 @@ void interpret()
 			pc = stack[b + 2];
 			b = stack[b + 1];
 			break;
+		case RAND:
+			srand(time(&temp));
+			stack[top] = rand()%stack[top];
+			printf("random: %d\n", stack[top]);
+			break;
 		} // switch
 	}
 	while (pc);
-
 	printf("End executing PL/0 program.\n");
 } // interpret
 
@@ -2153,8 +2173,8 @@ int main (int argc, char **argv)
 
 		// create begin symbol sets
 		declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_NULL);
-		statbegsys = createset(SYM_INC, SYM_DEC, SYM_IDENTIFIER, SYM_PRINT, SYM_RETURN, SYM_EXIT, SYM_CONTINUE, SYM_BREAK, SYM_IF, SYM_WHILE, SYM_DO, SYM_FOR, SYM_BEGIN, SYM_NULL);
-		facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_INC, SYM_DEC, SYM_LPAREN, SYM_MINUS, SYM_LOGIC_NOT, SYM_BIT_NOT, SYM_NULL);
+		statbegsys = createset(SYM_INC, SYM_DEC, SYM_IDENTIFIER, SYM_PRINT, SYM_RAND, SYM_RETURN, SYM_EXIT, SYM_CONTINUE, SYM_BREAK, SYM_IF, SYM_WHILE, SYM_DO, SYM_FOR, SYM_BEGIN, SYM_NULL);
+		facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_INC, SYM_DEC, SYM_LPAREN, SYM_MINUS, SYM_LOGIC_NOT, SYM_BIT_NOT, SYM_RAND, SYM_NULL);
 
 		err = cc = cx = ll = 0; // initialize global variables
 		ch = ' ';
