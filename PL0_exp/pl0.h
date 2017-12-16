@@ -174,7 +174,8 @@ char* err_msg[] =
 /* 42 */	"Variable expected.",
 /* 43 */	"Redefine of label.",
 /* 44 */	"Label expected.",
-/* 45 */	"Undefined label."
+/* 45 */	"Undefined label.",
+/* 46 */	"'while' expected."
 };
 
 //////////////////////////////////////////////////////////////////////

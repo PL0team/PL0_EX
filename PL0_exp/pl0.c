@@ -1969,6 +1969,41 @@ void statement(symset fsys, codelist nextlist, codelist looplist, codelist gotol
 		destroylist(sub_nextlist);
 		destroylist(sub_looplist);
 	}
+	else if(sym == SYM_DO)
+	{
+		// do...while statement
+		codelist sub_nextlist, sub_looplist;
+		sub_nextlist = createlist();
+		sub_looplist = createlist();
+		getsym();
+		cx0 = cx;
+		statement(set, sub_nextlist, sub_looplist, gotolist);
+		if(sym == SYM_WHILE)
+		{
+			getsym();
+			truelist = createlist();
+			falselist = createlist();
+			backpatch(sub_looplist, cx);
+			condition(set, truelist, falselist);
+			backpatch(truelist, cx0);
+			backpatch(falselist, cx);
+			destroylist(truelist);
+			destroylist(falselist);
+			if(code[cx - 1].f == JMP && code[cx - 1].a == 1)
+				cx --;
+			backpatch(sub_nextlist, cx);
+			if(sym == SYM_SEMICOLON)
+				getsym();
+			else
+				error(10);			// ';' expected.
+		}
+		else
+		{
+			error(46);	// 'while' expected.
+		}
+		destroylist(sub_nextlist);
+		destroylist(sub_looplist);
+	}
 	else if(sym == SYM_FOR)
 	{ // for statement
 		codelist sub_nextlist, sub_looplist;
