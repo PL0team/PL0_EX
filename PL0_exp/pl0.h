@@ -1,6 +1,7 @@
 #include <stdio.h>
-
-#define NRW        16     // number of reserved words
+#include <stdlib.h>
+#include <time.h>
+#define NRW        17     // number of reserved words
 #define TXMAX      500    // length of identifier table
 #define MAXNUMLEN  14     // maximum number of digits in numbers
 #define NSYM       13     // maximum number of symbols in array ssym and csym
@@ -75,6 +76,7 @@ enum symtype
 	SYM_ELIF,
 	SYM_ELSE,
 	SYM_PRINT,
+	SYM_RAND,
 	SYM_FOR,
 	SYM_WHILE,
 	SYM_DO,
@@ -101,7 +103,7 @@ enum idtype
 
 enum opcode
 {
-	LIT, OPR, LEA, LOD, STO, CAL, INT, JMP, JPC, JZ, JNZ, JE, JNE, JG, JGE, JL, JLE, JOD, RET, OUT, ALOD, ASTO
+	LIT, OPR, LEA, LOD, STO, CAL, INT, JMP, JPC, JZ, JNZ, JE, JNE, JG, JGE, JL, JLE, JOD, RET, OUT, RAND ,ALOD, ASTO
 };
 
 enum oprcode
@@ -166,7 +168,8 @@ char* err_msg[] =
 /* 38 */	"Var expected.",
 /* 39 */	"Incorrect use of \"continue\".",
 /* 40 */	"Incorrect use of \"break\".",
-/* 41 */    "Variable expected."
+/* 41 */	"'random(int)' takes only one arg",
+/* 42 */	"Variable expected."
 };
 
 //////////////////////////////////////////////////////////////////////
@@ -192,14 +195,14 @@ instruction code[CXMAX];
 char* word[NRW + 1] =
 {
 	"", /* place holder */
-	"call", "const", "do", "if", "elif", "else", "print", 
+	"call", "const", "do", "if", "elif", "else", "print", "random",
 	"odd", "procedure", "return", "exit", "var", "for", "while", "break", "continue"
 };
 
 int wsym[NRW + 1] =
 {
 	SYM_NULL,
-	SYM_CALL, SYM_CONST, SYM_DO, SYM_IF, SYM_ELIF, SYM_ELSE, SYM_PRINT, 
+	SYM_CALL, SYM_CONST, SYM_DO, SYM_IF, SYM_ELIF, SYM_ELSE, SYM_PRINT, SYM_RAND,
 	SYM_ODD, SYM_PROCEDURE, SYM_RETURN, SYM_EXIT, SYM_VAR, SYM_FOR, SYM_WHILE, SYM_BREAK, SYM_CONTINUE
 };
 
@@ -215,10 +218,10 @@ char csym[NSYM + 1] =
 	' ', '~', '(', ')', '[', ']', '=', ',', '$', ';','?', ':', '{', '}'
 };
 
-#define MAXINS   22
+#define MAXINS   23
 char* mnemonic[MAXINS] =
 {
-	"LIT", "OPR", "LEA", "LOD", "STO", "CAL", "INT", "JMP", "JPC", "JZ", "JNZ", "JE", "JNE", "JG", "JGE", "JL", "JLE", "JOD", "RET", "OUT", "ALOD", "ASTO"
+	"LIT", "OPR", "LEA", "LOD", "STO", "CAL", "INT", "JMP", "JPC", "JZ", "JNZ", "JE", "JNE", "JG", "JGE", "JL", "JLE", "JOD", "RET", "OUT", "RAND", "ALOD", "ASTO"
 };
 
 typedef struct

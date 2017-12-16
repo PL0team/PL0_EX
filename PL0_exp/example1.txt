@@ -1,7 +1,4 @@
-var i,j;
-
-i = -1;
-j = i + 1;
+var i;
+i = random(100);
 print(i);
-print(j);
 $
