@@ -438,6 +438,24 @@ void enter(int kind)
 } // enter
 
 //////////////////////////////////////////////////////////////////////
+void newlabel(char *label, int cx)
+{
+	strcpy(labeltable[++lx].label, label);
+	labeltable[lx].cx = cx;
+} // newlabel
+
+//////////////////////////////////////////////////////////////////////
+void updatelabel(int inc, int start, int end)
+{
+	int i;
+	for(i = lx; i > 0; i --)
+	{
+		if(labeltable[i].cx >= start && labeltable[i].cx <= end)
+			labeltable[i].cx += inc;
+	}
+} // updatelabel
+
+//////////////////////////////////////////////////////////////////////
 // locates identifier in symbol table.
 int position(char* id)
 {
@@ -448,6 +466,17 @@ int position(char* id)
 	while (strcmp(table[--i].name, id) != 0);
 	return i;
 } // position
+
+//////////////////////////////////////////////////////////////////////
+// locates label in label table
+int locatelabel(char* label)
+{
+	int i;
+	strcpy(labeltable[0].label, label);
+	i = lx + 1;
+	while (strcmp(labeltable[--i].label, label) != 0);
+	return i;
+} // locatelabel
 
 //////////////////////////////////////////////////////////////////////
 void backpatch(codelist l, int num)
@@ -462,8 +491,32 @@ void backpatch(codelist l, int num)
 		free(p);
 		p = l->next;
 	}
-
 } // backpatch
+
+//////////////////////////////////////////////////////////////////////
+void backpatchlabel(codelist l)
+{
+	int addr;
+	snode *p;
+	p = l->next;
+	while(p != NULL)
+	{
+		addr = labeltable[p->info].cx;
+		if(addr != -1)
+		{
+			l->next = p->next;
+			code[p->elem].a = addr - (p->elem);
+			p->elem = -1000000;
+			free(p);
+			p = l->next;
+		}
+		else
+		{
+			p = NULL;
+			error(45);	// Undefined label.
+		}
+	}
+} // backpatchlabel
 
 //////////////////////////////////////////////////////////////////////
 void logic2num(codelist truelist, codelist falselist)
@@ -1655,17 +1708,47 @@ void condition(symset fsys, codelist truelist, codelist falselist)
 } // condition
 
 //////////////////////////////////////////////////////////////////////
-void statement(symset fsys, codelist nextlist, codelist looplist)
+void statement(symset fsys, codelist nextlist, codelist looplist, codelist gotolist)
 {
-	void multi_statement(symset fsys, codelist nextlist, codelist looplist);
+	void multi_statement(symset fsys, codelist nextlist, codelist looplist, codelist gotolist);
 	int cx0;
 	int count;
 	symset set0, set;
 	symset set1, set2;
-	codelist truelist, falselist;
+	codelist truelist, falselist, sub_gotolist;
 
-	set0 = createset(SYM_IF, SYM_ELIF, SYM_ELSE, SYM_WHILE, SYM_DO, SYM_FOR, SYM_NULL);
+	set0 = createset(SYM_IF, SYM_ELIF, SYM_ELSE, SYM_WHILE, SYM_DO, SYM_FOR, SYM_GOTO, SYM_NULL);
 	set = uniteset(fsys, set0);
+	if(sym == SYM_IDENTIFIER)
+	{
+		if(position(id) == 0)
+		{
+			char label[MAXIDLEN + 1];
+			strcpy(label, id);
+			getsym();
+			if(sym != SYM_COLON)
+			{
+				error(11);	// Undeclared identifier.
+				getsym();
+			} // if
+			else
+			{
+				int i = locatelabel(label);
+				if(i != 0)
+				{
+					if(labeltable[i].cx != -1)
+						error(43);		// Redefine of label.
+					else
+						labeltable[i].cx = cx;
+				} // if
+				else
+				{
+					newlabel(label, cx);
+				} // else
+				getsym();
+			} // else
+		} // if
+	} // if
 	if (sym == SYM_IDENTIFIER || sym == SYM_INC || sym == SYM_DEC)
 	{ // expression statement
 		expression(fsys, NULL, NULL);
@@ -1747,6 +1830,30 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 		else
 			error(10);			// ';' expected.
 	}
+	else if(sym == SYM_GOTO)
+	{
+		getsym();
+		if(sym == SYM_IDENTIFIER && position(id) == 0)
+		{
+			int labelindex = locatelabel(id);
+			if(labelindex == 0)
+			{
+				newlabel(id, -1);
+				labelindex = lx;
+			}
+			insertlistwithinfo(gotolist, cx, labelindex);
+			gen(JMP, 0, 0);
+			getsym();
+			if(sym == SYM_SEMICOLON)
+				getsym();
+			else
+				error(10);	// ';' expected.
+		}
+		else
+		{
+			error(44);	// Label expected.
+		}
+	}
 	else if(sym == SYM_EXIT)
 	{
 		gen(JMP, 0, - cx);
@@ -1798,7 +1905,7 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 		//cx1 = cx;
 		//gen(JPC, 0, 0);
 		backpatch(truelist, cx);
-		statement(set, nextlist, looplist);
+		statement(set, nextlist, looplist, gotolist);
 		insertlist(if_nextlist, cx);
 		gen(JMP, 0, 0);
 		while(sym == SYM_ELIF)
@@ -1808,7 +1915,7 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 			condition(fsys, truelist, falselist);
 			conditionreverse(truelist, falselist);
 			backpatch(truelist, cx);
-			statement(set, nextlist, looplist);
+			statement(set, nextlist, looplist, gotolist);
 			insertlist(if_nextlist, cx);
 			gen(JMP, 0, 0);
 		}
@@ -1818,7 +1925,7 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 			//gen(JMP, 0, 0);
 			backpatch(falselist, cx);
 			getsym();
-			statement(set, nextlist, looplist);
+			statement(set, nextlist, looplist, gotolist);
 			backpatch(if_nextlist, cx);
 			//code[cx0].a = cx;
 		}
@@ -1851,7 +1958,7 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 		//cx2 = cx;
 		//gen(JPC, 0, 0);
 		backpatch(truelist, cx);
-		statement(set, sub_nextlist, sub_looplist);
+		statement(set, sub_nextlist, sub_looplist, gotolist);
 		gen(JMP, 0, cx0 - cx);
 		backpatch(sub_looplist, cx0);
 		backpatch(sub_nextlist, cx);
@@ -1871,6 +1978,7 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 		falselist = createlist();
 		sub_nextlist = createlist();
 		sub_looplist = createlist();
+		sub_gotolist = createlist();
 		set1 = createset(SYM_LPAREN, SYM_RPAREN, SYM_COMMA, SYM_SEMICOLON, SYM_NULL);
 		set2 = uniteset(fsys, set1);
 		getsym();
@@ -1904,7 +2012,10 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 					if(sym == SYM_RPAREN)
 					{
 						getsym();
-						statement(set, sub_nextlist, sub_looplist);
+						statement(set, sub_nextlist, sub_looplist, sub_gotolist);
+						updatelabel(-(end - start + 1), end + 1, cx - 1);
+						updatelist(sub_gotolist, -(end - start + 1), end + 1, cx - 1);
+						unitelist(gotolist, sub_gotolist);
 						// move code segment
 						backpatch(sub_looplist, cx);
 						// keep relative position between continue and start of increasement
@@ -1939,13 +2050,14 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 		destroylist(falselist);
 		destroylist(sub_nextlist);
 		destroylist(sub_looplist);
+		destroylist(sub_gotolist);
 	}
 	else if (sym == SYM_BEGIN)
 	{ // compound_statement
 		set1 = createset(SYM_BEGIN, SYM_END, SYM_NULL);
 		set2 = uniteset(fsys, set0);
 		getsym();
-		multi_statement(set, nextlist, looplist);
+		multi_statement(set, nextlist, looplist, gotolist);
 		if(sym == SYM_END)
 			getsym();
 		else
@@ -1959,13 +2071,13 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 } // statement
 
 //////////////////////////////////////////////////////////////////////
-void multi_statement(symset fsys, codelist nextlist, codelist looplist)
+void multi_statement(symset fsys, codelist nextlist, codelist looplist, codelist gotolist)
 {
 	symset set;
 	set = uniteset(fsys, statbegsys);
 	while(inset(sym, statbegsys))
 	{
-		statement(set, nextlist, looplist);
+		statement(set, nextlist, looplist, gotolist);
 	}
 	if(sym != SYM_PERIOD && sym != SYM_END)
 		error(29);				// '}' or '$' expected.
@@ -1984,6 +2096,7 @@ void block(symset fsys)
 	int savedProc;
 	int retval_addr;
 	symset set1, set;
+	codelist gotolist;
 
 	dx = 3;						// init dx
 	block_dx = dx;
@@ -2097,9 +2210,13 @@ void block(symset fsys)
 	mk->address = cx;
 	cx0 = cx;
 	gen(INT, 0, dx);
+	lx = 0;
 	set1 = createset(SYM_SEMICOLON, SYM_END, SYM_NULL);
 	set = uniteset(set1, fsys);
-	multi_statement(set, NULL, NULL);
+	gotolist = createlist();
+	multi_statement(set, NULL, NULL, gotolist);
+	backpatchlabel(gotolist);
+	destroylist(gotolist);
 	destroyset(set1);
 	destroyset(set);
 	gen(LIT, 0, 0);		// return 0 in default
@@ -2420,7 +2537,7 @@ int main (int argc, char **argv)
 
 		// create begin symbol sets
 		declbegsys = createset(SYM_CONST, SYM_VAR, SYM_PROCEDURE, SYM_NULL);
-		statbegsys = createset(SYM_INC, SYM_DEC, SYM_IDENTIFIER, SYM_PRINT, SYM_RAND, SYM_RETURN, SYM_EXIT, SYM_CONTINUE, SYM_BREAK, SYM_IF, SYM_WHILE, SYM_DO, SYM_FOR, SYM_BEGIN, SYM_NULL);
+		statbegsys = createset(SYM_INC, SYM_DEC, SYM_IDENTIFIER, SYM_PRINT, SYM_RAND, SYM_RETURN, SYM_EXIT, SYM_CONTINUE, SYM_BREAK, SYM_GOTO, SYM_IF, SYM_WHILE, SYM_DO, SYM_FOR, SYM_BEGIN, SYM_NULL);
 		facbegsys = createset(SYM_IDENTIFIER, SYM_NUMBER, SYM_INC, SYM_DEC, SYM_LPAREN, SYM_MINUS, SYM_LOGIC_NOT, SYM_BIT_NOT, SYM_RAND, SYM_NULL);
 
 		err = cc = cx = ll = 0; // initialize global variables

@@ -1,0 +1,26 @@
+var i, j;
+
+procedure f()
+{
+    print(1);
+    goto l3;
+    print(2);
+l3:
+    print(3);
+}
+
+for(i = 1; i <= 4; i ++)
+{
+    j = 0;
+test:
+    print(j);
+    j += 1;
+    if(j <= i)
+        goto test;
+    if(i > 2)
+       goto end;
+    print();
+}
+end:
+print(10);
+$

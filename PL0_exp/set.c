@@ -21,11 +21,13 @@ symset uniteset(symset s1, symset s2)
 		if (s1->elem < s2->elem)
 		{
 			p->elem = s1->elem;
+			p->info = s1->info;
 			s1 = s1->next;
 		}
 		else
 		{
 			p->elem = s2->elem;
+			p->info = s2->info;
 			s2 = s2->next;
 		}
 	}
@@ -35,8 +37,8 @@ symset uniteset(symset s1, symset s2)
 		p->next = (snode*) malloc(sizeof(snode));
 		p = p->next;
 		p->elem = s1->elem;
+		p->info = s1->info;
 		s1 = s1->next;
-
 	}
 
 	while (s2)
@@ -44,6 +46,7 @@ symset uniteset(symset s1, symset s2)
 		p->next = (snode*) malloc(sizeof(snode));
 		p = p->next;
 		p->elem = s2->elem;
+		p->info = s2->info;
 		s2 = s2->next;
 	}
 
@@ -52,7 +55,7 @@ symset uniteset(symset s1, symset s2)
 	return s;
 } // uniteset
 
-void setinsert(symset s, int elem)
+void setinsert(symset s, int elem, int info)
 {
 	snode* p = s;
 	snode* q;
@@ -64,6 +67,7 @@ void setinsert(symset s, int elem)
 
 	q = (snode*) malloc(sizeof(snode));
 	q->elem = elem;
+	q->info = info;
 	q->next = p->next;
 	p->next = q;
 } // setinsert
@@ -79,7 +83,7 @@ symset createset(int elem, .../* SYM_NULL */)
 	va_start(list, elem);
 	while (elem)
 	{
-		setinsert(s, elem);
+		setinsert(s, elem, 0);
 		elem = va_arg(list, int);
 	}
 	va_end(list);
@@ -126,8 +130,13 @@ void destroylist(codelist l)
 
 void insertlist(codelist l, int elem)
 {
-	setinsert(l, elem);
+	setinsert(l, elem, 0);
 } // insertlist
+
+void insertlistwithinfo(codelist l, int elem, int info)
+{
+	setinsert(l, elem, info);
+}
 
 int deletelist(codelist l, int elem)
 {
@@ -147,6 +156,18 @@ int deletelist(codelist l, int elem)
 
 	}
 } // deletelist
+
+void updatelist(codelist l, int inc, int start, int end)
+{
+	snode *p;
+	p = l->next;
+	while(p != NULL)
+	{
+		if(p->elem >= start && p->elem <= end)
+			p->elem += inc;
+		p = p->next;
+	}
+} // updatelist
 
 void unitelist(codelist dst, codelist src)
 {

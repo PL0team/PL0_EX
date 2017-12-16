@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#define NRW        17     // number of reserved words
+#define NRW        18     // number of reserved words
 #define TXMAX      500    // length of identifier table
 #define MAXNUMLEN  14     // maximum number of digits in numbers
 #define NSYM       13     // maximum number of symbols in array ssym and csym
@@ -16,6 +16,7 @@
 #define MAXARR     30     // maxinum number of arrays
 #define MAXPROC    30     // maxinum number of procedure
 #define MAXARGC    10	  // maxinum number of procedure argument
+#define MAXLABEL   20
 
 #define STACKSIZE  1000   // maximum storage
 
@@ -80,6 +81,7 @@ enum symtype
 	SYM_FOR,
 	SYM_WHILE,
 	SYM_DO,
+	SYM_GOTO,
 	SYM_BREAK,
 	SYM_CONTINUE,
 	SYM_CALL,
@@ -169,7 +171,10 @@ char* err_msg[] =
 /* 39 */	"Incorrect use of \"continue\".",
 /* 40 */	"Incorrect use of \"break\".",
 /* 41 */	"'random(int)' takes only one arg",
-/* 42 */	"Variable expected."
+/* 42 */	"Variable expected.",
+/* 43 */	"Redefine of label.",
+/* 44 */	"Label expected.",
+/* 45 */	"Undefined label."
 };
 
 //////////////////////////////////////////////////////////////////////
@@ -187,6 +192,7 @@ int  level = 0;
 int  tx = 0;	 // last item num in symbol table, point to entered item
 int  ax = 0;	 // last item num in array table, point to entered item
 int  px = 0;	 // last item num in procedure table, point to entered item
+int  lx = 0;	 // last item num in label table, pointed to entered item
 
 char line[512];
 
@@ -196,14 +202,14 @@ char* word[NRW + 1] =
 {
 	"", /* place holder */
 	"call", "const", "do", "if", "elif", "else", "print", "random",
-	"odd", "procedure", "return", "exit", "var", "for", "while", "break", "continue"
+	"odd", "procedure", "return", "exit", "var", "for", "while", "goto", "break", "continue"
 };
 
 int wsym[NRW + 1] =
 {
 	SYM_NULL,
 	SYM_CALL, SYM_CONST, SYM_DO, SYM_IF, SYM_ELIF, SYM_ELSE, SYM_PRINT, SYM_RAND,
-	SYM_ODD, SYM_PROCEDURE, SYM_RETURN, SYM_EXIT, SYM_VAR, SYM_FOR, SYM_WHILE, SYM_BREAK, SYM_CONTINUE
+	SYM_ODD, SYM_PROCEDURE, SYM_RETURN, SYM_EXIT, SYM_VAR, SYM_FOR, SYM_WHILE, SYM_GOTO, SYM_BREAK, SYM_CONTINUE
 };
 
 int ssym[NSYM + 1] =
@@ -260,6 +266,14 @@ typedef struct
 } procinfo;
 
 procinfo proctable[MAXPROC];
+
+typedef struct
+{
+	char label[MAXIDLEN + 1];
+	int cx;
+} labelinfo;
+
+labelinfo labeltable[MAXLABEL];
 
 FILE* infile;
 
