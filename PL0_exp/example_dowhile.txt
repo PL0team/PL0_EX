@@ -1,0 +1,13 @@
+var i, j;
+
+i = 0;
+j = 0;
+do
+{
+    i = i + 1;
+    j = j + 2;
+}
+while(j <= 10);
+print(i);
+print(j);
+$
