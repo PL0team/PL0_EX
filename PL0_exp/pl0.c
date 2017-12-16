@@ -421,6 +421,12 @@ void enter(int kind)
 		ax ++;
 		mk->index = ax;
 		break;
+	case ID_REFER:
+		mk = (mask*) &table[tx];
+		mk->level = 0;
+		mk->address = 0;
+		mk->index = 0;		// modified later
+		break;
 	} // switch
 } // enter
 
@@ -556,68 +562,148 @@ void constdeclaration()
 } // constdeclaration
 
 //////////////////////////////////////////////////////////////////////
-void vardeclaration(void)
+void arraydecalration()
 {
+	void expression(symset fsys, codelist truelist, codelist falselist);
 	int dim;
 	int i;
-	if (sym == SYM_IDENTIFIER)
+	int cx0;
+	symset set;
+	enter(ID_ARRAY);
+	dim = 0;
+	set = createset(SYM_RINDEX, SYM_NULL);
+	while(sym == SYM_LINDEX)
 	{
 		getsym();
-		if(sym != SYM_LINDEX)
+		cx0 = cx;
+		expression(set, NULL, NULL);
+		if(cx == cx0 + 1 && code[cx0].f == LIT)
 		{
-			enter(ID_VARIABLE);
-		} // if
+			arraytable[ax].up[dim] = code[cx0].a - 1;
+			dim += 1;
+			cx --;
+		}
 		else
 		{
-			enter(ID_ARRAY);
-			dim = 0;
-			while(sym == SYM_LINDEX)
+			error(31);		// Number or const expected.
+		}
+		/*
+		if(sym == SYM_NUMBER)
+		{
+			arraytable[ax].up[dim] = num - 1;
+			dim += 1;
+		}
+		else if(sym == SYM_IDENTIFIER)
+		{
+			if((i = position(id)) == 0)
 			{
+				error(11); // Undeclared identifier.
 				getsym();
-				if(sym == SYM_NUMBER)
+			} // if
+			else
+			{
+				if(table[i].kind == ID_CONSTANT)
 				{
-					arraytable[ax].up[dim] = num - 1;
+					arraytable[ax].up[dim] = table[i].value - 1;
 					dim += 1;
 				}
-				else if(sym == SYM_IDENTIFIER)
+				else
 				{
-					if((i = position(id)) == 0)
+					error(31);			// Number or const expected.
+					getsym();
+				}
+			}
+		}
+		else
+		{
+			error(31);		// Number or const expected.
+			getsym();
+		}
+		getsym();
+		*/
+		if(sym == SYM_RINDEX)
+			getsym();
+		else
+			error(33);		// ']' expected.
+	} // while
+	destroyset(set);
+	arraytable[ax].dimension = dim;
+	arraytable[ax].count[dim - 1] = 1;
+	for(i = dim - 2; i >= 0; i --)
+		arraytable[ax].count[i] = arraytable[ax].count[i + 1] * (arraytable[ax].up[i + 1] + 1);
+	dx += arraytable[ax].count[0] * (arraytable[ax].up[0] + 1);
+} // arraydeclaration
+
+//////////////////////////////////////////////////////////////////////
+void refdeclaration()
+{
+	int i;
+	mask *mk, *src;
+	if(sym == SYM_BIT_AND)
+	{
+		getsym();
+		if(sym == SYM_IDENTIFIER)
+		{
+			enter(ID_REFER);
+			getsym();
+			if(sym == SYM_ASSIGN)
+			{
+				getsym();
+				if(sym == SYM_IDENTIFIER)
+				{
+					if ((i = position(id)) == 0)
 					{
 						error(11); // Undeclared identifier.
 						getsym();
 					} // if
 					else
 					{
-						if(table[i].kind == ID_CONSTANT)
+						if(table[i].kind == ID_VARIABLE)
 						{
-							arraytable[ax].up[dim] = table[i].value - 1;
-							dim += 1;
-						}
+							mk = (mask*) &table[tx];
+							src = (mask*) &table[i];
+							mk->index = i;
+							mk->level = src->level;
+							mk->address = src->address;
+							getsym();
+						} // if
 						else
 						{
-							error(31);			// Number or const expected.
-							getsym();
-						}
-					}
-				}
+							error(41);	// Variable expected.
+						} // else 
+					} // else
+				} // if
 				else
 				{
-					error(31);		// Number or const expected.
-					getsym();
-				}
-				getsym();
-				if(sym == SYM_RINDEX)
-					getsym();
-				else
-					error(33);		// ']' expected.
-			} // while
-			arraytable[ax].dimension = dim;
-			int i;
-			arraytable[ax].count[dim - 1] = 1;
-			for(i = dim - 2; i >= 0; i --)
-				arraytable[ax].count[i] = arraytable[ax].count[i + 1] * (arraytable[ax].up[i + 1] + 1);
-			dx += arraytable[ax].count[0] * (arraytable[ax].up[0] + 1);
+					error(41);	// There must be a identifier to follow '='.
+				} // else
+			} // if
+			else
+			{
+				error(3);	// There must be an '=' to follow the identifier.
+			} // else
+		} // if
+		else
+		{
+			error(4);	// There must be an identifier to follow 'const', 'var', 'procedure' or '&'.
 		} // else
+	} // if
+} // refdeclaration
+
+//////////////////////////////////////////////////////////////////////
+void vardeclaration(void)
+{
+	if (sym == SYM_IDENTIFIER)
+	{
+		getsym();
+		if(sym == SYM_LINDEX)
+		{
+			arraydecalration();
+		} // if
+		else
+		{
+			enter(ID_VARIABLE);
+		}
 	} // if
 	else
 	{
@@ -820,6 +906,7 @@ void factor(symset fsys, codelist truelist, codelist falselist)
 						getsym();
 						break;
 					case ID_VARIABLE:
+					case ID_REFER:
 						mk = (mask*) &table[i];
 						gen(LOD, level - mk->level, mk->address);
 						getsym();
@@ -1763,7 +1850,10 @@ void block(symset fsys)
 			while (sym == SYM_COMMA)
 			{
 				getsym();
-				vardeclaration();
+				if(sym == SYM_IDENTIFIER)
+					vardeclaration();
+				else if(sym == SYM_BIT_AND)
+					refdeclaration();
 			}
 			if (sym == SYM_SEMICOLON)
 			{

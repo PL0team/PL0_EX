@@ -90,7 +90,13 @@ enum symtype
 
 enum idtype
 {
-	ID_CONSTANT, ID_VARIABLE, ID_PROCEDURE, ID_ARRAY
+	ID_CONSTANT,
+	ID_VARIABLE,
+	ID_PROCEDURE,
+	ID_ARRAY,
+	ID_REFER,
+	ID_ARG_REFER,
+	ID_ARG_ARRAY
 };
 
 enum opcode
@@ -123,7 +129,7 @@ char* err_msg[] =
 /*  1 */    "Found '==' when expecting '='.",
 /*  2 */    "There must be a number to follow '='.",
 /*  3 */    "There must be an '=' to follow the identifier.",
-/*  4 */    "There must be an identifier to follow 'const', 'var', or 'procedure'.",
+/*  4 */    "There must be an identifier to follow 'const', 'var', 'procedure' or '&'.",
 /*  5 */    "Missing ',' or ';'.",
 /*  6 */    "Incorrect procedure name.",
 /*  7 */    "Statement expected.",
@@ -159,7 +165,8 @@ char* err_msg[] =
 /* 37 */	"':' expected.",
 /* 38 */	"Var expected.",
 /* 39 */	"Incorrect use of \"continue\".",
-/* 40 */	"Incorrect use of \"break\"."
+/* 40 */	"Incorrect use of \"break\".",
+/* 41 */    "Variable expected."
 };
 
 //////////////////////////////////////////////////////////////////////
