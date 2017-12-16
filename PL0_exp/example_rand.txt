@@ -1,0 +1,4 @@
+var i;
+i = random(100);
+print(i);
+$
