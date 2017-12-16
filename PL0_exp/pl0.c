@@ -410,22 +410,30 @@ void enter(int kind)
 	case ID_PROCEDURE:
 		mk = (mask*) &table[tx];
 		mk->level = level;
-		px ++;
-		mk->index = px;
+		mk->index = ++px;
 		break;
 	case ID_ARRAY:
 		mk = (mask*) &table[tx];
 		mk->level = level;
 		mk->address = dx;
-		ax ++;
-		mk->index = ax;
+		mk->index = ++ax;
 		break;
 	case ID_REFER:
 		mk = (mask*) &table[tx];
-		mk->level = 0;
+		mk->level = 0;		// modified later
 		mk->address = 0;
-		mk->index = 0;		// modified later
+		mk->index = 0;
 		break;
+	case ID_ARG_REFER:
+		mk = (mask*) &table[tx];
+		mk->level = level;
+		mk->address = dx ++;
+		break;
+	case ID_ARG_ARRAY:
+		mk = (mask*) &table[tx];
+		mk->level = level;
+		mk->address = dx ++;
+		mk->index = ++ax;
 	} // switch
 } // enter
 
@@ -561,14 +569,73 @@ void constdeclaration()
 } // constdeclaration
 
 //////////////////////////////////////////////////////////////////////
-void arraydecalration()
+void refdeclaration()
+{
+	int i;
+	mask *mk, *src;
+	if(sym == SYM_BIT_AND)
+	{
+		getsym();
+		if(sym == SYM_IDENTIFIER)
+		{
+			enter(ID_REFER);
+			getsym();
+			if(sym == SYM_ASSIGN)
+			{
+				getsym();
+				if(sym == SYM_IDENTIFIER)
+				{
+					if ((i = position(id)) == 0)
+					{
+						error(11); // Undeclared identifier.
+						getsym();
+					} // if
+					else
+					{
+						if(table[i].kind == ID_VARIABLE)
+						{
+							mk = (mask*) &table[tx];
+							src = (mask*) &table[i];
+							mk->index = i;
+							mk->level = src->level;
+							mk->address = src->address;
+							getsym();
+						} // if
+						else
+						{
+							error(42);	// Variable expected.
+						} // else 
+					} // else
+				} // if
+				else
+				{
+					error(41);	// There must be a identifier to follow '='.
+				} // else
+			} // if
+			else
+			{
+				error(3);	// There must be an '=' to follow the identifier.
+			} // else
+		} // if
+		else
+		{
+			error(4);	// There must be an identifier to follow 'const', 'var', 'procedure' or '&'.
+		} // else
+	} // if
+} // refdeclaration
+
+//////////////////////////////////////////////////////////////////////
+void arraydecalration(int arg)
 {
 	void expression(symset fsys, codelist truelist, codelist falselist);
 	int dim;
 	int i;
 	int cx0;
 	symset set;
-	enter(ID_ARRAY);
+	if(arg == 0)
+		enter(ID_ARRAY);
+	else
+		enter(ID_ARG_ARRAY);
 	dim = 0;
 	set = createset(SYM_RINDEX, SYM_NULL);
 	while(sym == SYM_LINDEX)
@@ -630,64 +697,9 @@ void arraydecalration()
 	arraytable[ax].count[dim - 1] = 1;
 	for(i = dim - 2; i >= 0; i --)
 		arraytable[ax].count[i] = arraytable[ax].count[i + 1] * (arraytable[ax].up[i + 1] + 1);
-	dx += arraytable[ax].count[0] * (arraytable[ax].up[0] + 1);
+	if(arg == 0)
+		dx += arraytable[ax].count[0] * (arraytable[ax].up[0] + 1);
 } // arraydeclaration
-
-//////////////////////////////////////////////////////////////////////
-void refdeclaration()
-{
-	int i;
-	mask *mk, *src;
-	if(sym == SYM_BIT_AND)
-	{
-		getsym();
-		if(sym == SYM_IDENTIFIER)
-		{
-			enter(ID_REFER);
-			getsym();
-			if(sym == SYM_ASSIGN)
-			{
-				getsym();
-				if(sym == SYM_IDENTIFIER)
-				{
-					if ((i = position(id)) == 0)
-					{
-						error(11); // Undeclared identifier.
-						getsym();
-					} // if
-					else
-					{
-						if(table[i].kind == ID_VARIABLE)
-						{
-							mk = (mask*) &table[tx];
-							src = (mask*) &table[i];
-							mk->index = i;
-							mk->level = src->level;
-							mk->address = src->address;
-							getsym();
-						} // if
-						else
-						{
-							error(42);	// Variable expected.
-						} // else 
-					} // else
-				} // if
-				else
-				{
-					error(41);	// There must be a identifier to follow '='.
-				} // else
-			} // if
-			else
-			{
-				error(3);	// There must be an '=' to follow the identifier.
-			} // else
-		} // if
-		else
-		{
-			error(4);	// There must be an identifier to follow 'const', 'var', 'procedure' or '&'.
-		} // else
-	} // if
-} // refdeclaration
 
 //////////////////////////////////////////////////////////////////////
 void vardeclaration(void)
@@ -697,7 +709,7 @@ void vardeclaration(void)
 		getsym();
 		if(sym == SYM_LINDEX)
 		{
-			arraydecalration();
+			arraydecalration(0);
 		} // if
 		else
 		{
@@ -713,15 +725,35 @@ void vardeclaration(void)
 //////////////////////////////////////////////////////////////////////
 int argdeclaration(void)
 {
-	if(sym == SYM_VAR)
+	if(sym == SYM_BIT_AND)
 	{
 		getsym();
-		vardeclaration();
-	}
+		if(sym == SYM_IDENTIFIER)
+		{
+			enter(ID_ARG_REFER);
+			getsym();
+		} // if
+		else
+		{
+			error(42);	// Variable expected.
+		} // else
+	} // if
+	else if(sym == SYM_IDENTIFIER)
+	{
+		getsym();
+		if(sym == SYM_LINDEX)
+		{
+			arraydecalration(1);
+		} // if
+		else
+		{
+			enter(ID_VARIABLE);
+		} // else
+	} // else if
 	else
 	{
 		error(34);		// The symbol can't be the type of a argument.
-	}
+	} // else
 	return table[tx].kind;
 } // argdeclaration
 
@@ -740,12 +772,16 @@ void args_decl(symset fsys)
 		if(sym != SYM_RPAREN)
 		{
 			proctable[px].type[count] = argdeclaration();
+			if(table[tx].kind == ID_ARG_ARRAY)
+				proctable[px].info[count] = ax;
 			count += 1;
 			while(sym == SYM_COMMA)
 			{
 				getsym();
 				argdeclaration();
 				proctable[px].type[count] = table[tx].kind;
+				if(table[tx].kind == ID_ARG_ARRAY)
+					proctable[px].info[count] = ax;
 				count += 1;
 			} // while
 		} // if
@@ -757,13 +793,9 @@ void args_decl(symset fsys)
 		}
 		dx = arg_max + 1;
 		if(sym == SYM_RPAREN)
-		{
 			getsym();
-		}
 		else
-		{
 			error(22);	// Missing ')'.
-		}
 	} // if
 	else
 	{
@@ -772,11 +804,15 @@ void args_decl(symset fsys)
 } // args_decl
 
 //////////////////////////////////////////////////////////////////////
-int args_list(symset fsys)
+void args_list(symset fsys, int index)
 {
 	void expression(symset fsys, codelist truelist, codelist falselist);
+	procinfo info = proctable[((mask*) &table[index])->index];
 	symset set, set0;
-	int count = 0;
+	int i = 0;
+	int pos;
+	mask *mk;
+	int flag;
 
 	if(sym == SYM_LPAREN)
 	{
@@ -785,50 +821,129 @@ int args_list(symset fsys)
 		{
 			set0 = createset(SYM_COMMA, SYM_LPAREN, SYM_RPAREN, SYM_NULL);
 			set = uniteset(fsys, set0);
-			expression(set, NULL, NULL);
-			count += 1;
-			while(sym == SYM_COMMA)
+			flag = 1;
+			do
 			{
-				getsym();
-				expression(set, NULL, NULL);
-				// result will store on top of stack and become real argment
-				count += 1;
-			} // while
+				if(flag == 1)
+					flag = 0;
+				else
+					getsym();
+				if(info.type[i] == ID_VARIABLE)
+				{
+					expression(set, NULL, NULL);
+				}
+				else if(info.type[i] == ID_ARG_REFER || info.type[i] == ID_ARG_ARRAY)
+				{
+					if(sym == SYM_IDENTIFIER)
+					{
+						if((pos = position(id)) != 0)
+						{
+							mk = (mask*) &table[pos];
+							if(info.type[i] == ID_ARG_REFER)
+							{
+								if(mk->kind == ID_VARIABLE || mk->kind == ID_REFER)
+									gen(LEA, level - mk->level, mk->address);
+								else if(mk->kind == ID_ARG_REFER)
+									gen(LOD, level - mk->level, mk->address);
+								else
+									error(30);	// Argc can't match.
+							} // if
+							else if(info.type[i] == ID_ARG_ARRAY)
+							{
+								if(mk->kind == ID_ARRAY || mk->kind == ID_ARG_ARRAY)
+								{
+									arrayinfo imgarg = arraytable[info.info[i]];
+									arrayinfo realarg = arraytable[mk->index];
+									if(realarg.dimension == imgarg.dimension)
+									{
+										int state = 1;
+										int j;
+										for(j = 0; j < imgarg.dimension; j ++)
+										{
+											if(realarg.up[j] != imgarg.up[j])
+											{
+												state = 0;
+												break;
+											}
+										} //for
+										if(state == 1)
+										{
+											if(mk->kind == ID_ARRAY)
+												gen(LEA, level - mk->level, mk->address);
+											else if(mk->kind == ID_ARG_ARRAY)
+												gen(LOD, level - mk->level, mk->address);
+										} // if
+										else
+										{
+											error(30);	// Argc can't match.
+										} // else
+									} // if
+									else
+									{
+										error(30);	// Argc can't match.
+									} // else
+								} // if
+								else
+								{
+									error(30);	// Argc can't match.
+								} // else
+							} // else if
+						} // if
+						else
+						{
+							error(11);	// Undeclared identifier
+						} // else
+					} // if
+					else
+					{
+						error(42);	// Variable expected.
+					} // else
+					getsym();
+				} // else if
+				else
+				{
+					error(30);		// Argc can't match.
+					getsym();
+				} // else
+				i += 1;
+			} // do
+			while(sym == SYM_COMMA);
 			destroyset(set);
 			destroyset(set0);
 		} // if
 		if(sym == SYM_RPAREN)
+		{	
+			if(i != info.argc)
+				error(30);		// Argc can't match.
 			getsym();
+		} // if
 		else
+		{
 			error(22);		// Missing ')'.
+		} // else
 	} // if
 	else
 	{
 		error(26);		// Missing '('.
 	} // else
-	return count;
 } // args_list
 
 //////////////////////////////////////////////////////////////////////
-void proc_call(symset fsys, int i)
+void proc_call(symset fsys, int index)
 {
 	symset set, set0;
-	mask *mk = (mask*) &table[i];
-	int count;
+	mask *mk = (mask*) &table[index];
+	int count = proctable[mk->index].argc;
 
 	gen(INT, 0, 1);
 	getsym();
 	set0 = createset(SYM_LPAREN, SYM_RPAREN, SYM_NULL);
 	set = uniteset(fsys, set0);
-	count = args_list(set);
+	args_list(set, index);
 	destroyset(set);
 	destroyset(set0);
 	gen(CAL, level - mk->level, mk->address);	// build new stack frame
 	gen(INT, 0, - count);		// pop all args
-	if(count != proctable[mk->index].argc)
-	{
-		error(30);		// Argc can't match.
-	}
 } // proc_call
 
 //////////////////////////////////////////////////////////////////////
@@ -932,6 +1047,20 @@ void factor(symset fsys, codelist truelist, codelist falselist)
 						break;
 					case ID_PROCEDURE:
 						proc_call(fsys, i);
+						break;
+					case ID_ARG_REFER:
+						mk = (mask*) &table[i];
+						gen(LOD, level- mk->level, mk->address);
+						gen(ALOD, 0, 0);
+						getsym();
+						break;
+					case ID_ARG_ARRAY:
+						mk = (mask*) &table[i];
+						gen(LOD, level - mk->level, mk->address);
+						getsym();
+						array_index(fsys, i);
+						gen(OPR, 0, OPR_ADD);
+						gen(ALOD, 0, 0);
 						break;
 				} // switch
 			} // else
@@ -1549,12 +1678,40 @@ void statement(symset fsys, codelist nextlist, codelist looplist)
 	else if(sym == SYM_PRINT)
 	{ // print statement
 		getsym();
-		count = args_list(fsys);
+		count = 0;
+		if(sym == SYM_LPAREN)
+		{
+			getsym();
+			if(sym != SYM_RPAREN)
+			{
+				symset ptset0 = createset(SYM_COMMA, SYM_LPAREN, SYM_RPAREN, SYM_NULL);
+				symset ptset = uniteset(fsys, ptset0);
+				expression(ptset, NULL, NULL);
+				count += 1;
+				while(sym == SYM_COMMA)
+				{
+					getsym();
+					expression(ptset, NULL, NULL);
+					count += 1;
+				}
+				destroyset(ptset);
+				destroyset(ptset0);
+			}
+			if(sym == SYM_RPAREN)
+				getsym();
+			else
+				error(22);	// Missing ')'.
+		}
+		else
+		{
+			error(26);	// Missing '('.
+		}
+		//count = args_list(fsys);
 		gen(OUT, 0, count);
 		if(sym == SYM_SEMICOLON)
-		getsym();
+			getsym();
 		else
-		error(10);			// ';' expected.
+			error(10);			// ';' expected.
 	}
 	// else if(sym == SYM_RAND)
 	// {// rand statement

@@ -256,6 +256,7 @@ typedef struct
 {
 	int argc;
 	int type[MAXARGC];
+	int info[MAXARGC];
 } procinfo;
 
 procinfo proctable[MAXPROC];

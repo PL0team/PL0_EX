@@ -1,7 +1,22 @@
 var a, b, &c = a;
 
+procedure swap(&m, &n)
+{
+    var t;
+    t = m;
+    m = n;
+    n = t;
+}
+
 a = 3;
 print(c);
 c = 6;
 print(a);
+print();
+a = 1;
+b = 2;
+print(a, b);
+swap(a, b);
+print(a, b);
+print();
 $

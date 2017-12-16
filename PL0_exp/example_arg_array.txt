@@ -1,0 +1,15 @@
+const m = 2, n = 3;
+var b[m][n], i, j;
+procedure test(a[2][3])
+{
+    var i, j;
+    for(i = 0; i < 2; i ++)
+        for(j = 0; j < 3; j ++)
+            a[i][j] = i * 10 + j;
+}
+
+test(b);
+for(i = 0; i < m; i ++)
+    for(j = 0; j < n; j ++)
+        print(b[i][j]);
+$
