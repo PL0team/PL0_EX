@@ -1550,7 +1550,7 @@ void condition_assign_expr(symset fsys, codelist truelist, codelist falselist)
 			backpatch(or_falselist, cx);
 			getsym();
 			condition_assign_expr(set, NULL, NULL);
-			code[cx0].a = cx;
+			code[cx0].a = cx - cx0;
 		}
 		else
 		{
